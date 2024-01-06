@@ -184,15 +184,20 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
             AABB childBox = shrinkBox(box, axisIndices);
 
             float2 nearFar;
-            bool intersected = intersectRayAABB(primaryRayOrigin, hitDir, childBox.minPoint, childBox.maxPoint, nearFar);
-            if (intersected && nearFar.x >= 0.0 && nearFar.y <= 1.0) {
-                if (child.isLeaf() || nodesStackSize >= MAX_OCTREE_DEPTH) {
-                    float density = child.density;
-                    maxDensity = max(density, maxDensity);
-                } else {
-                    box = childBox;
-                    // push node
-                    nodesStack[nodesStackSize++] = NodeTravRef(child.index);
+            bool intersected = intersectRayAABB(primaryRayOrigin, primaryRayDir, childBox.minPoint, childBox.maxPoint, nearFar);
+            //if (intersected && nearFar.x >= 0.0 && nearFar.y <= 1.0) {
+            if (intersected) {
+                float near = length(primaryRayDir * nearFar.x);
+                float far = length(primaryRayDir * nearFar.y);
+                if (near < hitDist) {
+                    if (child.isLeaf() || nodesStackSize >= MAX_OCTREE_DEPTH) {
+                        float density = child.density;
+                        maxDensity = max(density, maxDensity);
+                    } else {
+                        box = childBox;
+                        // push node
+                        nodesStack[nodesStackSize++] = NodeTravRef(child.index);
+                    }
                 }
             }
 
