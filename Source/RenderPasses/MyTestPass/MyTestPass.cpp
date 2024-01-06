@@ -34,13 +34,8 @@ extern "C" FALCOR_API_EXPORT void registerPlugin(Falcor::PluginRegistry& registr
 
 MyTestPass::MyTestPass(ref<Device> pDevice, const Properties& props) : RenderPass(pDevice)
 {
-    ProgramDesc desc;
-    desc.addShaderModules(mpScene->getShaderModules());
-    desc.addShaderLibrary("RenderPasses/MyTestPass/MyTestShader.slang");
+    mpProgram = Program::createGraphics(mpDevice, "RenderPasses/MyTestPass/MyTestShader.slang", "vsMain", "psMain");
 
-    mpProgram = Program::create(mpDevice, desc, mpScene->getSceneDefines());
-
-    //mpProgram = Program::createFromFile(mpDevice, "RenderPasses/MyTestPass/MyTestShader.slang", "vsMain", "psMain");
     RasterizerState::Desc wireframeDesc;
     wireframeDesc.setFillMode(RasterizerState::FillMode::Wireframe);
     wireframeDesc.setCullMode(RasterizerState::CullMode::None);

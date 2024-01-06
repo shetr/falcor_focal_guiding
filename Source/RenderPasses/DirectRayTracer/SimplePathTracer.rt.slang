@@ -203,7 +203,7 @@ bool generateScatterRay(const ShadingData sd, const IMaterialInstance mi, bool i
         rayData.origin = rayOrigin;
         if (!isCurveHit && bsdfSample.isLobe(LobeType::Transmission))
         {
-            rayData.origin = sd.computeNewRayOrigin(false);
+            rayData.origin = sd.computeRayOrigin(false);
         }
         rayData.direction = bsdfSample.wo;
         rayData.thp *= bsdfSample.weight;
@@ -245,7 +245,7 @@ void handleHit(const HitInfo hit, inout ScatterRayData rayData)
     }
 
     // Compute ray origin for new rays spawned from the hit.
-    float3 rayOrigin = sd.computeNewRayOrigin();
+    float3 rayOrigin = sd.computeRayOrigin();
 
     // Add contribution of direct light from analytic lights.
     if (kUseAnalyticLights)
@@ -305,7 +305,7 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
         for (uint i = 0; i < gPRNGDimension; i++) sampleNext1D(sg);
 
         // Compute ray origin for new rays spawned from the G-buffer.
-        float3 rayOrigin = sd.computeNewRayOrigin();
+        float3 rayOrigin = sd.computeRayOrigin();
 
         if (kComputeDirect)
         {

@@ -133,7 +133,7 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
         let mi = gScene.materials.getMaterialInstance(sd, lod);
 
         // Compute ray origin for new rays spawned from the G-buffer.
-        float3 rayOrigin = sd.computeNewRayOrigin();
+        float3 rayOrigin = sd.computeRayOrigin();
 
         // Always output directly emitted light, independent of whether emissive materials are treated as light sources or not.
         outColor += mi.getProperties(sd).emission;
