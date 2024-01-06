@@ -29,17 +29,6 @@ struct NodeTravRef
     }
 }
 
-void travStackPushNode<let N : uint>(inout NodeTravRef stack[N], inout uint stackSize, NodeTravRef node)
-{
-    stack[stackSize] = node;
-    ++stackSize;
-}
-
-void travStackPopNode(inout uint stackSize)
-{
-    --stackSize;
-}
-
 uint3 unpackOctreeChildIndex(uint index)
 {
     int xi = index % 2;

@@ -158,14 +158,17 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
 
         NodeTravRef nodesStack[MAX_OCTREE_DEPTH];
         uint nodesStackSize = 0;
-        travStackPushNode<MAX_OCTREE_DEPTH>(nodesStack, nodesStackSize, NodeTravRef(0));
+        // push first node
+        nodesStack[nodesStackSize++] = NodeTravRef(0);
         AABB box = AABB(gSceneBoundsMin, gSceneBoundsMax);
         uint failsafe = 0;
         while (nodesStackSize > 0 && failsafe < 8 * gNodesSize)
         {
             uint topIndex = nodesStackSize - 1;
             if (nodesStack[topIndex].child >= 8) {
-                travStackPopNode(nodesStackSize);
+                // pop node
+                --nodesStackSize;
+                // correct the box
                 if (nodesStackSize > 1) {
                     topIndex = nodesStackSize - 1;
                     uint currChildIndex = nodesStack[topIndex].child - 1;
@@ -188,7 +191,8 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
                     maxDensity = max(density, maxDensity);
                 } else {
                     box = childBox;
-                    travStackPushNode<MAX_OCTREE_DEPTH>(nodesStack, nodesStackSize, NodeTravRef(child.index));
+                    // push node
+                    nodesStack[nodesStackSize++] = NodeTravRef(child.index);
                 }
             }
 
