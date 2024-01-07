@@ -26,6 +26,8 @@ const ChannelList kOutputChannels = {
 FocalDensities::FocalDensities(ref<Device> pDevice, const Properties& props)
     : RenderPass(pDevice)
 {
+    mpSampleGenerator = SampleGenerator::create(mpDevice, SAMPLE_GENERATOR_UNIFORM);
+    FALCOR_ASSERT(mpSampleGenerator);
 }
 
 Properties FocalDensities::getProperties() const
@@ -75,6 +77,8 @@ void FocalDensities::execute(RenderContext* pRenderContext, const RenderData& re
     {
         logWarning("Depth-of-field requires the '{}' input. Expect incorrect shading.", kInputViewDir);
     }
+
+    mTracer.pProgram->addDefine("MAX_BOUNCES", std::to_string(mMaxBounces));
 
     // For optional I/O resources, set 'is_valid_<name>' defines to inform the program of which ones it can access.
     // TODO: This should be moved to a more general mechanism using Slang.
@@ -179,6 +183,7 @@ void FocalDensities::prepareVars()
     FALCOR_ASSERT(mTracer.pProgram);
 
     // Configure program.
+    mTracer.pProgram->addDefines(mpSampleGenerator->getDefines());
     mTracer.pProgram->setTypeConformances(mpScene->getTypeConformances());
 
     // Create program variables for the current program.
@@ -197,9 +202,10 @@ void FocalDensities::prepareVars()
          {0, 0.0f, 0.9f},
          {0, 0.0f, 0.5f},
          {0, 0.0f, 1.0f}}}};
-    std::vector<DensityNode> densityNodes = genUniformNodes(mMaxOctreeDepth);
+    std::vector<DensityNode> densityNodes = genUniformNodes(mMaxOctreeDepth, false);
     mNodesSize = (uint)densityNodes.size();
     mNodes = mpDevice->createStructuredBuffer(var["gNodes"], mNodesSize, bindFlags, memoryType, densityNodes.data());
+    mpSampleGenerator->bindShaderData(var);
 }
 
 float genRand()
@@ -233,14 +239,21 @@ DensityNode emptyNode()
          {0, 0.0f, 0.0f}}};
 }
 
-std::vector<DensityNode> FocalDensities::genUniformNodes(uint depth) const
+std::vector<DensityNode> FocalDensities::genUniformNodes(uint depth, bool random) const
 {
     std::vector<DensityNode> nodes;
     uint ni = 0;
     uint nc = 1;
     if (depth == 1)
     {
-        nodes.push_back(randNode());
+        if (random)
+        {
+            nodes.push_back(randNode());
+        }
+        else
+        {
+            nodes.push_back(emptyNode());
+        }
     }
     else
     {
@@ -259,7 +272,14 @@ std::vector<DensityNode> FocalDensities::genUniformNodes(uint depth) const
                 }
                 else
                 {
-                    nodes.push_back(randNode());
+                    if (random)
+                    {
+                        nodes.push_back(randNode());
+                    }
+                    else
+                    {
+                        nodes.push_back(emptyNode());
+                    }
                 }
             }
         }

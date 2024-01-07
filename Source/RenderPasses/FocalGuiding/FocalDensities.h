@@ -27,13 +27,15 @@ public:
 private:
     void prepareVars();
 
-    std::vector<DensityNode> genUniformNodes(uint depth) const;
+    std::vector<DensityNode> genUniformNodes(uint depth, bool random) const;
     std::vector<DensityNode> genRandomNodes() const;
 
     // Internal state
     ref<Scene> mpScene; ///< Current scene.
+    ref<SampleGenerator> mpSampleGenerator; ///< GPU sample generator.
     ref<Buffer> mNodes;
 
+    uint mMaxBounces = 3;   
     uint mNodesSize = 1;
     uint mMaxOctreeDepth = 4;
 
