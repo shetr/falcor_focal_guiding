@@ -37,7 +37,7 @@ private:
 
     uint mMaxBounces = 3;   
     uint mNodesSize = 1;
-    uint mMaxOctreeDepth = 4;
+    uint mMaxOctreeDepth = 3;
 
     // Ray tracing program.
     struct

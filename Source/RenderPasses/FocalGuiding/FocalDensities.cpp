@@ -78,6 +78,7 @@ void FocalDensities::execute(RenderContext* pRenderContext, const RenderData& re
         logWarning("Depth-of-field requires the '{}' input. Expect incorrect shading.", kInputViewDir);
     }
 
+    mTracer.pProgram->addDefine("MAX_OCTREE_DEPTH", std::to_string(mMaxOctreeDepth));
     mTracer.pProgram->addDefine("MAX_BOUNCES", std::to_string(mMaxBounces));
 
     // For optional I/O resources, set 'is_valid_<name>' defines to inform the program of which ones it can access.

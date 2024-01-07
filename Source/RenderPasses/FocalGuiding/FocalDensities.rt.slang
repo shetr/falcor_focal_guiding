@@ -11,7 +11,7 @@ import Rendering.Lights.LightHelpers;
 
 import DensityNode;
 
-StructuredBuffer<DensityNode> gNodes;
+RWStructuredBuffer<DensityNode> gNodes;
 
 cbuffer CB
 {
@@ -32,6 +32,7 @@ RWTexture2D<float4> gOutputColor;
 // Static configuration based on defines set from the host.
 #define is_valid(name) (is_valid_##name != 0)
 static const uint kMaxBounces = MAX_BOUNCES;
+static const uint kMaxOctreeDepth = MAX_OCTREE_DEPTH;
 static const float3 kDefaultBackgroundColor = float3(0, 0, 0);
 static const float kRayTMax = FLT_MAX;
 
@@ -45,6 +46,7 @@ struct ScatterRayData
     uint pathLength;  ///< Path length in number of path segments (0 at origin, 1 at first secondary hit, etc.). Max 2^31.
     float3 origin;    ///< Next path segment origin.
     float3 direction; ///< Next path segment direction.
+    //float pdf;
 
     SampleGenerator sg; ///< Per-ray state for the sample generator (up to 16B).
 
@@ -59,6 +61,7 @@ struct ScatterRayData
         this.origin = float3(0, 0, 0);
         this.direction = float3(0, 0, 0);
         this.sg = sg;
+        //this.pdf = 0.0;
     }
 };
 
@@ -169,11 +172,73 @@ bool generateScatterRay(const ShadingData sd, const IMaterialInstance mi, bool i
             rayData.origin = sd.computeRayOrigin(false);
         }
         rayData.direction = bsdfSample.wo;
-        rayData.thp *= bsdfSample.weight;
+        rayData.thp = float3(bsdfSample.pdf);
+        //rayData.pdf = bsdfSample.pdf;
         return any(rayData.thp > 0.f);
     }
 
     return false;
+}
+
+void storeDensities(float3 rayOrigin, float3 rayDir, float3 hitPos, float pdf)
+{
+    float maxDensity = 0.0;
+    float3 hitDir = hitPos - rayOrigin;
+    float hitDist = length(hitDir);
+
+    NodeTravRef nodesStack[MAX_OCTREE_DEPTH];
+    uint nodesStackSize = 0;
+    // push first node
+    nodesStack[nodesStackSize] = NodeTravRef(0);
+    ++nodesStackSize;
+    AABB box = AABB(gSceneBoundsMin, gSceneBoundsMax);
+    uint failsafe = 0;
+    while (nodesStackSize > 0 && failsafe < 9 * gNodesSize)
+    {
+        uint topIndex = nodesStackSize - 1;
+        if (nodesStack[topIndex].child >= 8) {
+            // pop node
+            --nodesStackSize;
+            break;
+            // correct the box
+            if (nodesStackSize > 1) {
+                topIndex = nodesStackSize - 1;
+                uint currChildIndex = nodesStack[topIndex].child - 1;
+                int3 axisIndices = unpackOctreeChildIndex(currChildIndex);
+                box = extendBox(box, axisIndices);
+            }
+        }
+        else
+        {
+            uint nodeIndex = nodesStack[topIndex].node;
+            uint childIndex = nodesStack[topIndex].child;
+            DensityChild child = gNodes[nodeIndex].childs[childIndex];
+            int3 axisIndices = unpackOctreeChildIndex(childIndex);
+            AABB childBox = shrinkBox(box, axisIndices);
+
+            float2 nearFar;
+            bool intersected = intersectRayAABB(rayOrigin, rayDir, childBox.minPoint, childBox.maxPoint, nearFar);
+            if (intersected) {
+                float near = length(rayDir * nearFar.x);
+                float far = length(rayDir * nearFar.y);
+                if (near < hitDist) {
+                    if (child.isLeaf() || nodesStackSize >= MAX_OCTREE_DEPTH) {
+                        // store leaf density
+                        gNodes[nodeIndex].childs[childIndex].density += 1/pdf;
+                    } else {
+                        box = childBox;
+                        // push node
+                        nodesStack[nodesStackSize] = NodeTravRef(child.index);
+                        ++nodesStackSize;
+                    }
+                }
+            }
+
+            ++nodesStack[topIndex].child;
+        }
+        ++failsafe;
+    }
+
 }
 
 /** Process a hit.
@@ -208,6 +273,8 @@ void handleHit(const HitInfo hit, inout ScatterRayData rayData)
 
     // Compute ray origin for new rays spawned from the hit.
     float3 rayOrigin = sd.computeRayOrigin();
+
+    storeDensities(rayData.origin, rayData.direction, rayOrigin, rayData.thp.x);
 
     // Generate scatter ray for the next path segment.
     // The raygen shader will continue the path based on the returned payload.
