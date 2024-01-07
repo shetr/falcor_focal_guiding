@@ -31,6 +31,8 @@ RWTexture2D<float4> gOutputColor;
 static const uint kMaxOctreeDepth = MAX_OCTREE_DEPTH;
 static const float3 kDefaultBackgroundColor = float3(0, 0, 0);
 static const float kRayTMax = FLT_MAX;
+static const float3 kMinColor = float3(0.5, 0.5, 0);
+static const float3 kMaxColor = float3(1, 0, 0);
 
 struct ScatterRayData
 {
@@ -147,10 +149,10 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
 
         // Compute ray origin for new rays spawned from the G-buffer.
         float3 rayOrigin = sd.computeRayOrigin();
-
-        // Always output directly emitted light, independent of whether emissive materials are treated as light sources or not.
-        outColor += mi.getProperties(sd).emission;
-        outColor += mi.getProperties(sd).diffuseReflectionAlbedo;
+        float cosTheta = abs(dot(sd.V, sd.faceN));
+        outColor += float3(cosTheta);
+        //outColor += mi.getProperties(sd).emission;
+        //outColor += mi.getProperties(sd).diffuseReflectionAlbedo;
 
         float maxDensity = 0.0;
         float3 hitDir = rayOrigin - primaryRayOrigin;
@@ -205,7 +207,10 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
             ++failsafe;
         }
 
-        outColor *= 1.0 - maxDensity;
+        float t = maxDensity;
+        float3 densityVizColor = kMinColor * (1 - t) + kMaxColor * t;
+
+        outColor *= densityVizColor;
     }
     else
     {
