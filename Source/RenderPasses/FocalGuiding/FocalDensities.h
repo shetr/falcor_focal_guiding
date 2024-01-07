@@ -27,6 +27,7 @@ public:
 private:
     void prepareVars();
 
+    std::vector<DensityNode> genUniformNodes(uint depth) const;
     std::vector<DensityNode> genRandomNodes() const;
 
     // Internal state
@@ -34,6 +35,7 @@ private:
     ref<Buffer> mNodes;
 
     uint mNodesSize = 1;
+    uint mMaxOctreeDepth = 4;
 
     // Ray tracing program.
     struct

@@ -96,6 +96,7 @@ void FocalDensities::execute(RenderContext* pRenderContext, const RenderData& re
     Dictionary& dict = renderData.getDictionary();
     dict["gNodes"] = mNodes;
     dict["gNodesSize"] = mNodesSize;
+    dict["gMaxOctreeDepth"] = mMaxOctreeDepth;
     // renderData holds the requested resources
     // auto& pTexture = renderData.getTexture("src");
 
@@ -196,14 +197,14 @@ void FocalDensities::prepareVars()
          {0, 0.0f, 0.9f},
          {0, 0.0f, 0.5f},
          {0, 0.0f, 1.0f}}}};
-    std::vector<DensityNode> randDensities = genRandomNodes();
-    mNodesSize = (uint)randDensities.size();
-    mNodes = mpDevice->createStructuredBuffer(var["gNodes"], mNodesSize, bindFlags, memoryType, randDensities.data());
+    std::vector<DensityNode> densityNodes = genUniformNodes(mMaxOctreeDepth);
+    mNodesSize = (uint)densityNodes.size();
+    mNodes = mpDevice->createStructuredBuffer(var["gNodes"], mNodesSize, bindFlags, memoryType, densityNodes.data());
 }
 
 float genRand()
 {
-    return static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
+    return 0.1f + 0.9f*static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
 }
 
 DensityNode randNode()
@@ -217,6 +218,55 @@ DensityNode randNode()
          {0, 0.0f, genRand()},
          {0, 0.0f, genRand()},
          {0, 0.0f, genRand()}}};
+}
+
+DensityNode emptyNode()
+{
+    return DensityNode{
+        {{0, 0.0f, 0.0f},
+         {0, 0.0f, 0.0f},
+         {0, 0.0f, 0.0f},
+         {0, 0.0f, 0.0f},
+         {0, 0.0f, 0.0f},
+         {0, 0.0f, 0.0f},
+         {0, 0.0f, 0.0f},
+         {0, 0.0f, 0.0f}}};
+}
+
+std::vector<DensityNode> FocalDensities::genUniformNodes(uint depth) const
+{
+    std::vector<DensityNode> nodes;
+    uint ni = 0;
+    uint nc = 1;
+    if (depth == 1)
+    {
+        nodes.push_back(randNode());
+    }
+    else
+    {
+        nodes.push_back(emptyNode());
+    }
+    for (uint d = 0; d < depth - 1; ++d)
+    {
+        for (uint i = ni; i < ni + nc; ++i)
+        {
+            for (int ch = 0; ch < 8; ++ch)
+            {
+                nodes[i].childs[ch].index = (uint)nodes.size();
+                if (d < depth - 2)
+                {
+                    nodes.push_back(emptyNode());
+                }
+                else
+                {
+                    nodes.push_back(randNode());
+                }
+            }
+        }
+        ni += nc;
+        nc *= 8;
+    }
+    return nodes;
 }
 
 std::vector<DensityNode> FocalDensities::genRandomNodes() const

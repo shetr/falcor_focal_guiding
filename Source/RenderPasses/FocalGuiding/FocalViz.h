@@ -32,7 +32,7 @@ private:
     ref<Buffer> mNodes;
 
     uint mNodesSize = 1;
-    uint mMaxOctreeDepth = 5;
+    uint mMaxOctreeDepth = 3;
 
     // Ray tracing program.
     struct

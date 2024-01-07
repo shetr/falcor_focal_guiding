@@ -43,6 +43,7 @@ RenderPassReflection FocalViz::reflect(const CompileData& compileData)
 
 void FocalViz::execute(RenderContext* pRenderContext, const RenderData& renderData)
 {
+
     // If we have no scene, just clear the outputs and return.
     if (!mpScene)
     {
@@ -73,6 +74,11 @@ void FocalViz::execute(RenderContext* pRenderContext, const RenderData& renderDa
         logWarning("Depth-of-field requires the '{}' input. Expect incorrect shading.", kInputViewDir);
     }
 
+    Dictionary& dict = renderData.getDictionary();
+    mNodes = dict["gNodes"];
+    mNodesSize = dict["gNodesSize"];
+    mMaxOctreeDepth = dict["gMaxOctreeDepth"];
+
     mTracer.pProgram->addDefine("MAX_OCTREE_DEPTH", std::to_string(mMaxOctreeDepth));
 
     // For optional I/O resources, set 'is_valid_<name>' defines to inform the program of which ones it can access.
@@ -85,10 +91,6 @@ void FocalViz::execute(RenderContext* pRenderContext, const RenderData& renderDa
     if (!mTracer.pVars)
         prepareVars();
     FALCOR_ASSERT(mTracer.pVars);
-
-    Dictionary& dict = renderData.getDictionary();
-    mNodes = dict["gNodes"];
-    mNodesSize = dict["gNodesSize"];
 
     // Set constants.
     auto var = mTracer.pVars->getRootVar();

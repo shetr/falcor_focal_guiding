@@ -31,7 +31,8 @@ RWTexture2D<float4> gOutputColor;
 static const uint kMaxOctreeDepth = MAX_OCTREE_DEPTH;
 static const float3 kDefaultBackgroundColor = float3(0, 0, 0);
 static const float kRayTMax = FLT_MAX;
-static const float3 kMinColor = float3(0.5, 0.5, 0);
+// static const float3 kMinColor = float3(0.5, 0.5, 0);
+static const float3 kMinColor = float3(1, 1, 0);
 static const float3 kMaxColor = float3(1, 0, 0);
 
 struct ScatterRayData
@@ -149,10 +150,11 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
 
         // Compute ray origin for new rays spawned from the G-buffer.
         float3 rayOrigin = sd.computeRayOrigin();
-        float cosTheta = abs(dot(sd.V, sd.faceN));
-        outColor += float3(cosTheta);
+
         //outColor += mi.getProperties(sd).emission;
         //outColor += mi.getProperties(sd).diffuseReflectionAlbedo;
+        float cosTheta = abs(dot(sd.V, sd.faceN));
+        outColor += float3(cosTheta);
 
         float maxDensity = 0.0;
         float3 hitDir = rayOrigin - primaryRayOrigin;
@@ -161,15 +163,17 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
         NodeTravRef nodesStack[MAX_OCTREE_DEPTH];
         uint nodesStackSize = 0;
         // push first node
-        nodesStack[nodesStackSize++] = NodeTravRef(0);
+        nodesStack[nodesStackSize] = NodeTravRef(0);
+        ++nodesStackSize;
         AABB box = AABB(gSceneBoundsMin, gSceneBoundsMax);
         uint failsafe = 0;
-        while (nodesStackSize > 0 && failsafe < 8 * gNodesSize)
+        while (nodesStackSize > 0 && failsafe < 9 * gNodesSize)
         {
             uint topIndex = nodesStackSize - 1;
             if (nodesStack[topIndex].child >= 8) {
                 // pop node
                 --nodesStackSize;
+                break;
                 // correct the box
                 if (nodesStackSize > 1) {
                     topIndex = nodesStackSize - 1;
@@ -177,40 +181,43 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
                     int3 axisIndices = unpackOctreeChildIndex(currChildIndex);
                     box = extendBox(box, axisIndices);
                 }
-                continue;
             }
-            uint nodeIndex = nodesStack[topIndex].node;
-            uint childIndex = nodesStack[topIndex].child;
-            DensityChild child = gNodes[nodeIndex].childs[childIndex];
-            int3 axisIndices = unpackOctreeChildIndex(childIndex);
-            AABB childBox = shrinkBox(box, axisIndices);
+            else
+            {
+                uint nodeIndex = nodesStack[topIndex].node;
+                uint childIndex = nodesStack[topIndex].child;
+                DensityChild child = gNodes[nodeIndex].childs[childIndex];
+                int3 axisIndices = unpackOctreeChildIndex(childIndex);
+                AABB childBox = shrinkBox(box, axisIndices);
 
-            float2 nearFar;
-            bool intersected = intersectRayAABB(primaryRayOrigin, primaryRayDir, childBox.minPoint, childBox.maxPoint, nearFar);
-            //if (intersected && nearFar.x >= 0.0 && nearFar.y <= 1.0) {
-            if (intersected) {
-                float near = length(primaryRayDir * nearFar.x);
-                float far = length(primaryRayDir * nearFar.y);
-                if (near < hitDist) {
-                    if (child.isLeaf() || nodesStackSize >= MAX_OCTREE_DEPTH) {
-                        float density = child.density;
-                        maxDensity = max(density, maxDensity);
-                    } else {
-                        box = childBox;
-                        // push node
-                        nodesStack[nodesStackSize++] = NodeTravRef(child.index);
+                float2 nearFar;
+                bool intersected = intersectRayAABB(primaryRayOrigin, primaryRayDir, childBox.minPoint, childBox.maxPoint, nearFar);
+                if (intersected) {
+                    float near = length(primaryRayDir * nearFar.x);
+                    float far = length(primaryRayDir * nearFar.y);
+                    if (near < hitDist) {
+                        if (child.isLeaf() || nodesStackSize >= MAX_OCTREE_DEPTH) {
+                            float density = child.density;
+                            maxDensity = max(density, maxDensity);
+                        } else {
+                            box = childBox;
+                            // push node
+                            nodesStack[nodesStackSize] = NodeTravRef(child.index);
+                            ++nodesStackSize;
+                        }
                     }
                 }
-            }
 
-            ++nodesStack[topIndex].child;
+                ++nodesStack[topIndex].child;
+            }
             ++failsafe;
         }
 
         float t = maxDensity;
         float3 densityVizColor = kMinColor * (1 - t) + kMaxColor * t;
 
-        outColor *= densityVizColor;
+        outColor = outColor * (1 - t) + densityVizColor * t;
+        //outColor *= densityVizColor;
     }
     else
     {
