@@ -172,7 +172,7 @@ bool generateScatterRay(const ShadingData sd, const IMaterialInstance mi, bool i
             rayData.origin = sd.computeRayOrigin(false);
         }
         rayData.direction = bsdfSample.wo;
-        rayData.thp = float3(bsdfSample.pdf);
+        rayData.thp = bsdfSample.weight;
         //rayData.pdf = bsdfSample.pdf;
         return any(rayData.thp > 0.f);
     }
@@ -180,7 +180,7 @@ bool generateScatterRay(const ShadingData sd, const IMaterialInstance mi, bool i
     return false;
 }
 
-void storeDensities(float3 rayOrigin, float3 rayDir, float3 hitPos, float pdf)
+void storeDensities(float3 rayOrigin, float3 rayDir, float3 hitPos, float contribution)
 {
     float maxDensity = 0.0;
     float3 hitDir = hitPos - rayOrigin;
@@ -222,9 +222,17 @@ void storeDensities(float3 rayOrigin, float3 rayDir, float3 hitPos, float pdf)
                 float near = length(rayDir * nearFar.x);
                 float far = length(rayDir * nearFar.y);
                 if (near < hitDist) {
+                    //InterlockedAdd(gNodes[nodeIndex].childs[childIndex].accumulator, contribution);
+                    // += contribution;
+                    //float toatlAcc = 0;
+                    //for (int ch = 0; ch < 8; ++ch) {
+                    //    toatlAcc += gNodes[nodeIndex].childs[ch].accumulator;
+                    //}
+                    //float currDensity = gNodes[nodeIndex].childs[childIndex].accumulator / max(0.0001, toatlAcc);
+                    //gNodes[nodeIndex].childs[childIndex].density = currDensity;
                     if (child.isLeaf() || nodesStackSize >= MAX_OCTREE_DEPTH) {
                         // store leaf density
-                        gNodes[nodeIndex].childs[childIndex].density += 1/pdf;
+                        // AtomicAdd(gNodes[nodeIndex].childs[childIndex].density, 1 / pdf);
                     } else {
                         box = childBox;
                         // push node
@@ -274,7 +282,9 @@ void handleHit(const HitInfo hit, inout ScatterRayData rayData)
     // Compute ray origin for new rays spawned from the hit.
     float3 rayOrigin = sd.computeRayOrigin();
 
-    storeDensities(rayData.origin, rayData.direction, rayOrigin, rayData.thp.x);
+    float contribution = dot(float3(0.299, 0.587, 0.114), rayData.radiance);
+
+    storeDensities(rayData.origin, rayData.direction, rayOrigin, contribution);
 
     // Generate scatter ray for the next path segment.
     // The raygen shader will continue the path based on the returned payload.
