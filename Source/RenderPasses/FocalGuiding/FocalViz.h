@@ -34,6 +34,12 @@ private:
     uint mNodesSize = 1;
     uint mMaxOctreeDepth = 3;
 
+    uint mFrameCount = 0;
+    uint mMaxSliderDensity = 1000;
+    float mMinDensity = 0.0f;
+    float mMaxDensity = 1.0f;
+    bool mOptionsChanged = false;
+
     // Ray tracing program.
     struct
     {

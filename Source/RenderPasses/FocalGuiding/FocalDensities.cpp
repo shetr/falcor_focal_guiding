@@ -203,8 +203,8 @@ void FocalDensities::prepareVars()
          {0, 0.0f, 0.9f},
          {0, 0.0f, 0.5f},
          {0, 0.0f, 1.0f}}}};
-    //std::vector<DensityNode> densityNodes = genUniformNodes(mMaxOctreeDepth, false);
-    std::vector<DensityNode> densityNodes = genRandomNodes();
+    std::vector<DensityNode> densityNodes = genUniformNodes(mMaxOctreeDepth, false);
+    //std::vector<DensityNode> densityNodes = genRandomNodes();
     mNodesSize = (uint)densityNodes.size();
     mNodes = mpDevice->createStructuredBuffer(var["gNodes"], mNodesSize, bindFlags, memoryType, densityNodes.data());
     mpSampleGenerator->bindShaderData(var);

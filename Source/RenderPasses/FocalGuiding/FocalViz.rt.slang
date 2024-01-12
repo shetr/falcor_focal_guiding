@@ -14,9 +14,12 @@ StructuredBuffer<DensityNode> gNodes;
 
 cbuffer CB
 {
+    uint gFrameCount;
     uint gNodesSize;
     float3 gSceneBoundsMin;
     float3 gSceneBoundsMax;
+    float gMinDensity;
+    float gMaxDensity;
 }
 
 // Inputs
@@ -156,7 +159,8 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
         float cosTheta = abs(dot(sd.V, sd.faceN));
         outColor += float3(cosTheta);
 
-        MaxDensityAccumulator densityAcc;
+        // MaxDensityAccumulator densityAcc;
+        BoundedDensityAccumulator densityAcc = BoundedDensityAccumulator(gMinDensity, gMaxDensity);
         float3 hitDir = rayOrigin - primaryRayOrigin;
         float hitDist = length(hitDir);
 
@@ -197,7 +201,7 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
                     if (near < hitDist) {
                         if (child.isLeaf() || nodesStackSize >= MAX_OCTREE_DEPTH) {
                             float density = child.density;
-                            densityAcc.addDensity(density);
+                            densityAcc.addDensity(density / (float)gFrameCount);
                         } else {
                             box = childBox;
                             // push node

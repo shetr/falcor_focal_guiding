@@ -111,13 +111,17 @@ struct AvgDensityAccumulator : IDensityAccumulator
     }
 }
 
-struct SumDensityAccumulator : IDensityAccumulator
+struct BoundedDensityAccumulator : IDensityAccumulator
 {
     float densitiesSum;
+    float minDensity;
+    float maxDensity;
 
-    __init()
+    __init(float min, float max)
     {
         densitiesSum = 0;
+        minDensity = min;
+        maxDensity = max;
     }
 
     [mutating]
@@ -128,6 +132,6 @@ struct SumDensityAccumulator : IDensityAccumulator
 
     float getResult()
     {
-        return densitiesSum;
+        return (densitiesSum - minDensity) / (maxDensity - minDensity);
     }
 }

@@ -233,6 +233,9 @@ void storeDensities(float3 rayOrigin, float3 rayDir, float3 hitPos, float contri
                     if (child.isLeaf() || nodesStackSize >= MAX_OCTREE_DEPTH) {
                         // store leaf density
                         // AtomicAdd(gNodes[nodeIndex].childs[childIndex].density, 1 / pdf);
+                        //__atomicAdd(gNodes[nodeIndex].childs[childIndex].density, contribution);
+                        gNodes[nodeIndex].childs[childIndex].density += contribution;
+                        //gNodes[nodeIndex].childs[childIndex].density = (contribution + gNodes[nodeIndex].childs[childIndex].density) * 0.5;
                     } else {
                         box = childBox;
                         // push node

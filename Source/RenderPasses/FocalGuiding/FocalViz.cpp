@@ -94,9 +94,12 @@ void FocalViz::execute(RenderContext* pRenderContext, const RenderData& renderDa
 
     // Set constants.
     auto var = mTracer.pVars->getRootVar();
+    var["CB"]["gFrameCount"] = mFrameCount;
     var["CB"]["gNodesSize"] = mNodesSize;
     var["CB"]["gSceneBoundsMin"] = mpScene->getSceneBounds().minPoint;
     var["CB"]["gSceneBoundsMax"] = mpScene->getSceneBounds().maxPoint;
+    var["CB"]["gMinDensity"] = mMinDensity;
+    var["CB"]["gMaxDensity"] = mMaxDensity;
     // renderData holds the requested resources
     // auto& pTexture = renderData.getTexture("src");
 
@@ -121,9 +124,30 @@ void FocalViz::execute(RenderContext* pRenderContext, const RenderData& renderDa
 
     // Spawn the rays.
     mpScene->raytrace(pRenderContext, mTracer.pProgram.get(), mTracer.pVars, uint3(targetDim, 1));
+
+    mFrameCount++;
 }
 
-void FocalViz::renderUI(Gui::Widgets& widget) {}
+void FocalViz::renderUI(Gui::Widgets& widget)
+{
+    bool dirty = false;
+
+    dirty |= widget.var("Max slider density", mMaxSliderDensity, 0u, 1000000u);
+    widget.tooltip("Maximum value for Max density slider.", true);
+
+    dirty |= widget.slider("Min density", mMinDensity, 0.0f, mMaxDensity);
+    widget.tooltip("Minimum visualized density.", true);
+
+    dirty |= widget.slider("Max density", mMaxDensity, mMinDensity, (float)mMaxSliderDensity);
+    widget.tooltip("Maximum visualized density.", true);
+
+    // If rendering options that modify the output have changed, set flag to indicate that.
+    // In execute() we will pass the flag to other passes for reset of temporal data etc.
+    if (dirty)
+    {
+        mOptionsChanged = true;
+    }
+}
 
 void FocalViz::setScene(RenderContext* pRenderContext, const ref<Scene>& pScene)
 {
