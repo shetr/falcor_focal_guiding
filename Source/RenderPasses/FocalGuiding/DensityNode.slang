@@ -54,3 +54,80 @@ AABB extendBox(AABB box, uint3 axisIndices)
     extendedBox.maxPoint = extendedBox.minPoint + 2.0 * halfExtent;
     return extendedBox;
 }
+
+interface IDensityAccumulator
+{
+    [mutating]
+    void addDensity(float density);
+
+    float getResult();
+}
+
+struct MaxDensityAccumulator : IDensityAccumulator
+{
+    float maxDensity;
+
+    __init()
+    {
+        maxDensity = 0;
+    }
+
+    [mutating]
+    void addDensity(float density)
+    {
+        maxDensity = max(density, maxDensity);
+    }
+
+    float getResult()
+    {
+        return maxDensity;
+    }
+}
+
+struct AvgDensityAccumulator : IDensityAccumulator
+{
+    float densitiesSum;
+    uint densitiesCount;
+
+    __init()
+    {
+        densitiesSum = 0;
+        densitiesCount = 0;
+    }
+
+    [mutating]
+    void addDensity(float density)
+    {
+        densitiesSum += density;
+        densitiesCount++;
+    }
+
+    float getResult()
+    {
+        if (densitiesCount > 0) {
+            return densitiesSum / (float)densitiesCount;
+        }
+        return 0;
+    }
+}
+
+struct SumDensityAccumulator : IDensityAccumulator
+{
+    float densitiesSum;
+
+    __init()
+    {
+        densitiesSum = 0;
+    }
+
+    [mutating]
+    void addDensity(float density)
+    {
+        densitiesSum += density;
+    }
+
+    float getResult()
+    {
+        return densitiesSum;
+    }
+}

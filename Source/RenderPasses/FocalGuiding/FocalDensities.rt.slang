@@ -199,9 +199,8 @@ void storeDensities(float3 rayOrigin, float3 rayDir, float3 hitPos, float contri
         if (nodesStack[topIndex].child >= 8) {
             // pop node
             --nodesStackSize;
-            break;
             // correct the box
-            if (nodesStackSize > 1) {
+            if (nodesStackSize > 0) {
                 topIndex = nodesStackSize - 1;
                 uint currChildIndex = nodesStack[topIndex].child - 1;
                 int3 axisIndices = unpackOctreeChildIndex(currChildIndex);
@@ -222,6 +221,7 @@ void storeDensities(float3 rayOrigin, float3 rayDir, float3 hitPos, float contri
                 float near = length(rayDir * nearFar.x);
                 float far = length(rayDir * nearFar.y);
                 if (near < hitDist) {
+                    //__atomicAdd(gNodes[nodeIndex].childs[childIndex].accumulator, contribution);
                     //InterlockedAdd(gNodes[nodeIndex].childs[childIndex].accumulator, contribution);
                     // += contribution;
                     //float toatlAcc = 0;

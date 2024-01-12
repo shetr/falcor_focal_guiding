@@ -156,7 +156,7 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
         float cosTheta = abs(dot(sd.V, sd.faceN));
         outColor += float3(cosTheta);
 
-        float maxDensity = 0.0;
+        MaxDensityAccumulator densityAcc;
         float3 hitDir = rayOrigin - primaryRayOrigin;
         float hitDist = length(hitDir);
 
@@ -173,9 +173,8 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
             if (nodesStack[topIndex].child >= 8) {
                 // pop node
                 --nodesStackSize;
-                break;
                 // correct the box
-                if (nodesStackSize > 1) {
+                if (nodesStackSize > 0) {
                     topIndex = nodesStackSize - 1;
                     uint currChildIndex = nodesStack[topIndex].child - 1;
                     int3 axisIndices = unpackOctreeChildIndex(currChildIndex);
@@ -198,7 +197,7 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
                     if (near < hitDist) {
                         if (child.isLeaf() || nodesStackSize >= MAX_OCTREE_DEPTH) {
                             float density = child.density;
-                            maxDensity = max(density, maxDensity);
+                            densityAcc.addDensity(density);
                         } else {
                             box = childBox;
                             // push node
@@ -213,7 +212,7 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
             ++failsafe;
         }
 
-        float t = maxDensity;
+        float t = densityAcc.getResult();
         float3 densityVizColor = kMinColor * (1 - t) + kMaxColor * t;
 
         outColor = outColor * (1 - t) + densityVizColor * t;
