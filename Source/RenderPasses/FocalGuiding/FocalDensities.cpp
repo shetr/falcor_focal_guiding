@@ -119,6 +119,7 @@ void FocalDensities::execute(RenderContext* pRenderContext, const RenderData& re
         bind(channel);
 
     var["gNodes"] = mNodes;
+    var["gGlobalAccumulator"] = mGlobalAccumulator;
 
     // Get dimensions of ray dispatch.
     const uint2 targetDim = renderData.getDefaultTextureDims();
@@ -129,7 +130,13 @@ void FocalDensities::execute(RenderContext* pRenderContext, const RenderData& re
 }
 
 void FocalDensities::renderUI(Gui::Widgets& widget)
-{}
+{
+    bool shouldPrintNodes = widget.button("print nodes");
+    if (shouldPrintNodes)
+    {
+        printNodes();
+    }
+}
 
 void FocalDensities::setScene(RenderContext* pRenderContext, const ref<Scene>& pScene)
 {
@@ -208,6 +215,31 @@ void FocalDensities::prepareVars()
     mNodesSize = (uint)densityNodes.size();
     mNodes = mpDevice->createStructuredBuffer(var["gNodes"], mNodesSize, bindFlags, memoryType, densityNodes.data());
     mpSampleGenerator->bindShaderData(var);
+
+    float initAcc = 1.0f;
+    mGlobalAccumulator = mpDevice->createBuffer(1 * sizeof(float), bindFlags | ResourceBindFlags::Shared, memoryType, &initAcc);
+    
+}
+
+void FocalDensities::printNodes()
+{
+    float globalAccumulator = mGlobalAccumulator->getElement<float>(0);
+    std::vector<DensityNode> densityNodes = mNodes->getElements<DensityNode>(0, mNodesSize);
+
+    printf("node count:         %d\n", mNodesSize);
+    printf("global accumulator: %f\n", globalAccumulator);
+    for (uint i = 0; i < mNodesSize; ++i)
+    {
+        printf("  node: %d\n", i);
+        for (int ch = 0; ch < 8; ++ch)
+        {
+            DensityChild child = densityNodes[i].childs[ch];
+            printf("    child: %d\n", child.index);
+            printf("      is leaf:     %d\n", (int)child.isLeaf());
+            printf("      accumulator: %f\n", child.accumulator);
+            printf("      density:     %f\n", child.density);
+        }
+    }
 }
 
 float genRand()

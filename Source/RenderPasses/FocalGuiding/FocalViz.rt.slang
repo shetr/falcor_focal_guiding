@@ -159,8 +159,8 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
         float cosTheta = abs(dot(sd.V, sd.faceN));
         outColor += float3(cosTheta);
 
-        // MaxDensityAccumulator densityAcc;
-        BoundedDensityAccumulator densityAcc = BoundedDensityAccumulator(gMinDensity, gMaxDensity);
+        MaxDensityAccumulator densityAcc;
+        // BoundedDensityAccumulator densityAcc = BoundedDensityAccumulator(gMinDensity, gMaxDensity);
         float3 hitDir = rayOrigin - primaryRayOrigin;
         float hitDist = length(hitDir);
 

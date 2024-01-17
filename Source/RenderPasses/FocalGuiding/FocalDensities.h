@@ -27,6 +27,8 @@ public:
 private:
     void prepareVars();
 
+    void printNodes();
+
     std::vector<DensityNode> genUniformNodes(uint depth, bool random) const;
     std::vector<DensityNode> genRandomNodes() const;
 
@@ -34,6 +36,7 @@ private:
     ref<Scene> mpScene; ///< Current scene.
     ref<SampleGenerator> mpSampleGenerator; ///< GPU sample generator.
     ref<Buffer> mNodes;
+    ref<Buffer> mGlobalAccumulator;
 
     uint mMaxBounces = 3;   
     uint mNodesSize = 1;

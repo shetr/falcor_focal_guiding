@@ -1,5 +1,6 @@
 #include "Scene/SceneDefines.slangh"
 #include "Utils/Math/MathConstants.slangh"
+#include "Utils/NVAPI.slangh"
 
 import Scene.Raytracing;
 import Scene.Intersection;
@@ -12,6 +13,8 @@ import Rendering.Lights.LightHelpers;
 import DensityNode;
 
 RWStructuredBuffer<DensityNode> gNodes;
+//RWBuffer<float> gGlobalAccumulator;
+RWByteAddressBuffer gGlobalAccumulator;
 
 cbuffer CB
 {
@@ -61,7 +64,7 @@ struct ScatterRayData
         this.origin = float3(0, 0, 0);
         this.direction = float3(0, 0, 0);
         this.sg = sg;
-        //this.pdf = 0.0;
+        // this.pdf = 0.0;
     }
 };
 
@@ -193,6 +196,21 @@ void storeDensities(float3 rayOrigin, float3 rayDir, float3 hitPos, float contri
     ++nodesStackSize;
     AABB box = AABB(gSceneBoundsMin, gSceneBoundsMax);
     uint failsafe = 0;
+
+    float2 nearFar;
+    bool intersected = intersectRayAABB(rayOrigin, rayDir, box.minPoint, box.maxPoint, nearFar);
+    if (intersected) {
+        float near = length(rayDir * nearFar.x);
+        float far = length(rayDir * nearFar.y);
+        if (near < hitDist) {
+            // gGlobalAccumulator[0] += contribution;
+            //__atomicAdd(gGlobalAccumulator[0], contribution);
+            gGlobalAccumulator.InterlockedAddF32(0, contribution);
+            //float globalAcc = gGlobalAccumulator.Load<float>(0);
+            //gGlobalAccumulator.Store<float>(0, globalAcc + contribution);
+        }
+    }
+
     while (nodesStackSize > 0 && failsafe < 9 * gNodesSize)
     {
         uint topIndex = nodesStackSize - 1;
@@ -222,19 +240,31 @@ void storeDensities(float3 rayOrigin, float3 rayDir, float3 hitPos, float contri
                 float far = length(rayDir * nearFar.y);
                 if (near < hitDist) {
                     //__atomicAdd(gNodes[nodeIndex].childs[childIndex].accumulator, contribution);
-                    //InterlockedAdd(gNodes[nodeIndex].childs[childIndex].accumulator, contribution);
+                    // InterlockedAdd(gNodes[nodeIndex].childs[childIndex].accumulator, contribution);
                     // += contribution;
-                    //float toatlAcc = 0;
-                    //for (int ch = 0; ch < 8; ++ch) {
+                    // float toatlAcc = 0;
+                    // for (int ch = 0; ch < 8; ++ch) {
                     //    toatlAcc += gNodes[nodeIndex].childs[ch].accumulator;
                     //}
-                    //float currDensity = gNodes[nodeIndex].childs[childIndex].accumulator / max(0.0001, toatlAcc);
-                    //gNodes[nodeIndex].childs[childIndex].density = currDensity;
+                    // float currDensity = gNodes[nodeIndex].childs[childIndex].accumulator / max(0.0001, toatlAcc);
+                    // gNodes[nodeIndex].childs[childIndex].density = currDensity;
+                    gNodes[nodeIndex].childs[childIndex].accumulator += contribution;
+                    float parentAcc = 1;
+                    if (nodesStackSize > 1) {
+                        uint parentNodeIndex = nodesStack[topIndex - 1].node;
+                        uint parentChildIndex = nodesStack[topIndex - 1].child;
+                        parentAcc = gNodes[parentNodeIndex].childs[parentChildIndex].accumulator;
+                    } else {
+                        //parentAcc = gGlobalAccumulator[0];
+                        //asfloat()
+                        parentAcc = gGlobalAccumulator.Load<float>(0);
+                    }
+                    gNodes[nodeIndex].childs[childIndex].density = gNodes[nodeIndex].childs[childIndex].accumulator / parentAcc;
                     if (child.isLeaf() || nodesStackSize >= MAX_OCTREE_DEPTH) {
                         // store leaf density
                         // AtomicAdd(gNodes[nodeIndex].childs[childIndex].density, 1 / pdf);
                         //__atomicAdd(gNodes[nodeIndex].childs[childIndex].density, contribution);
-                        gNodes[nodeIndex].childs[childIndex].density += contribution;
+                        //gNodes[nodeIndex].childs[childIndex].density += contribution;
                         //gNodes[nodeIndex].childs[childIndex].density = (contribution + gNodes[nodeIndex].childs[childIndex].density) * 0.5;
                     } else {
                         box = childBox;
