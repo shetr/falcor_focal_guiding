@@ -116,7 +116,7 @@ void FocalViz::execute(RenderContext* pRenderContext, const RenderData& renderDa
     for (auto channel : kOutputChannels)
         bind(channel);
 
-    var["gNodes"] = mNodes;
+    var["gNodes.nodes"] = mNodes;
 
     // Get dimensions of ray dispatch.
     const uint2 targetDim = renderData.getDefaultTextureDims();

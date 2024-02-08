@@ -118,8 +118,18 @@ void FocalDensities::execute(RenderContext* pRenderContext, const RenderData& re
     for (auto channel : kOutputChannels)
         bind(channel);
 
-    var["gNodes"] = mNodes;
+    var["gNodes.nodes"] = mNodes;
     var["gGlobalAccumulator"] = mGlobalAccumulator;
+
+    //DefineList defines;
+    //defines.add("DENSITY_NODES_BLOCK");
+    //auto pPass = ComputePass::create(mpDevice, "DensityNode.slang", "main", defines);
+    //auto pReflector = pPass->getProgram()->getReflector()->getParameterBlock("gNodes");
+    //FALCOR_ASSERT(pReflector);
+    //// Bind resources to parameter block.
+    //mpNodesBlock = ParameterBlock::create(mpDevice, pReflector);
+    //auto nodes_var = mpNodesBlock->getRootVar();
+    //nodes_var["nodes"] = mNodes;
 
     // Get dimensions of ray dispatch.
     const uint2 targetDim = renderData.getDefaultTextureDims();
@@ -213,7 +223,8 @@ void FocalDensities::prepareVars()
     std::vector<DensityNode> densityNodes = genUniformNodes(mMaxOctreeDepth, false);
     //std::vector<DensityNode> densityNodes = genRandomNodes();
     mNodesSize = (uint)densityNodes.size();
-    mNodes = mpDevice->createStructuredBuffer(var["gNodes"], mNodesSize, bindFlags, memoryType, densityNodes.data());
+    //mNodes = mpDevice->createStructuredBuffer(var["gNodes"], mNodesSize, bindFlags, memoryType, densityNodes.data());
+    mNodes = mpDevice->createBuffer(mNodesSize, bindFlags | ResourceBindFlags::Shared, memoryType, densityNodes.data());
     mpSampleGenerator->bindShaderData(var);
 
     float initAcc = 1.0f;

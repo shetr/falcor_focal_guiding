@@ -10,7 +10,8 @@ import Rendering.Lights.LightHelpers;
 
 import DensityNode;
 
-StructuredBuffer<DensityNode> gNodes;
+// StructuredBuffer<DensityNode> gNodes;
+DensityNodes gNodes;
 
 cbuffer CB
 {
@@ -189,7 +190,7 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
             {
                 uint nodeIndex = nodesStack[topIndex].node;
                 uint childIndex = nodesStack[topIndex].child;
-                DensityChild child = gNodes[nodeIndex].childs[childIndex];
+                DensityChild child = gNodes.getChildNode(nodeIndex, childIndex);
                 int3 axisIndices = unpackOctreeChildIndex(childIndex);
                 AABB childBox = shrinkBox(box, axisIndices);
 

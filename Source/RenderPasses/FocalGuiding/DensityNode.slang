@@ -1,6 +1,13 @@
 
 import Utils.Math.AABB;
 
+#define DESNITY_CHILD_SIZE (3 * 4)
+#define DESNITY_CHILD_INDEX_OFFSET 0
+#define DESNITY_CHILD_ACCUMULATOR_OFFSET 4
+#define DESNITY_CHILD_DENSITY_OFFSET 8
+
+#define DESNITY_NODE_SIZE (DESNITY_CHILD_SIZE * 8)
+
 struct DensityChild
 {
     uint index;
@@ -15,6 +22,56 @@ struct DensityChild
 struct DensityNode
 {
     DensityChild childs[8];
+}
+
+struct DensityNodes
+{
+    RWByteAddressBuffer nodes;
+
+    DensityChild getChildNode(uint parentNodeIndex, uint childOffset)
+    {
+        uint childIndex = parentNodeIndex * DESNITY_NODE_SIZE + childOffset * DESNITY_CHILD_SIZE;
+        DensityChild child;
+        child.index = nodes.Load<uint>(childIndex + DESNITY_CHILD_INDEX_OFFSET);
+        child.accumulator = nodes.Load<float>(childIndex + DESNITY_CHILD_ACCUMULATOR_OFFSET);
+        child.density = nodes.Load<float>(childIndex + DESNITY_CHILD_DENSITY_OFFSET);
+        return child;
+    }
+
+    bool isChildNodeLeaf(uint parentNodeIndex, uint childOffset)
+    {
+        return getChildNodeIndex(parentNodeIndex, childOffset) == 0;
+    }
+
+    uint getChildNodeIndex(uint parentNodeIndex, uint childOffset)
+    {
+        int index = parentNodeIndex * DESNITY_NODE_SIZE + childOffset * DESNITY_CHILD_SIZE + DESNITY_CHILD_INDEX_OFFSET;
+        return nodes.Load<uint>(index);
+    }
+
+    float getChildAccumulator(uint parentNodeIndex, uint childOffset)
+    {
+        int index = parentNodeIndex * DESNITY_NODE_SIZE + childOffset * DESNITY_CHILD_SIZE + DESNITY_CHILD_ACCUMULATOR_OFFSET;
+        return nodes.Load<float>(index);
+    }
+
+    float getChildDensity(uint parentNodeIndex, uint childOffset)
+    {
+        int index = parentNodeIndex * DESNITY_NODE_SIZE + childOffset * DESNITY_CHILD_SIZE + DESNITY_CHILD_DENSITY_OFFSET;
+        return nodes.Load<float>(index);
+    }
+
+    void addToChildAccumulator(uint parentNodeIndex, uint childOffset, float value)
+    {
+        int index = parentNodeIndex * DESNITY_NODE_SIZE + childOffset * DESNITY_CHILD_SIZE + DESNITY_CHILD_ACCUMULATOR_OFFSET;
+        nodes.InterlockedAddF32(index, value);
+    }
+
+    void setChildDensity(uint parentNodeIndex, uint childOffset, float value)
+    {
+        int index = parentNodeIndex * DESNITY_NODE_SIZE + childOffset * DESNITY_CHILD_SIZE + DESNITY_CHILD_DENSITY_OFFSET;
+        nodes.Store(index, value);
+    }
 }
 
 struct NodeTravRef
@@ -135,3 +192,7 @@ struct BoundedDensityAccumulator : IDensityAccumulator
         return (densitiesSum - minDensity) / (maxDensity - minDensity);
     }
 }
+
+#ifdef DENSITY_NODES_BLOCK
+void main() {}
+#endif
