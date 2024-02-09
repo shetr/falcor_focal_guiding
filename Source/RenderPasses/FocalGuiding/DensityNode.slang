@@ -194,5 +194,6 @@ struct BoundedDensityAccumulator : IDensityAccumulator
 }
 
 #ifdef DENSITY_NODES_BLOCK
+ParameterBlock<DensityNodes> gNodes;
 void main() {}
 #endif
