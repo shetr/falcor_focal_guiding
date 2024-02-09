@@ -11,7 +11,7 @@ import Rendering.Lights.LightHelpers;
 import DensityNode;
 
 // StructuredBuffer<DensityNode> gNodes;
-DensityNodes gNodes;
+ParameterBlock<DensityNodes> gNodes;
 
 cbuffer CB
 {

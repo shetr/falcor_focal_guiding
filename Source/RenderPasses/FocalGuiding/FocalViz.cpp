@@ -116,7 +116,7 @@ void FocalViz::execute(RenderContext* pRenderContext, const RenderData& renderDa
     for (auto channel : kOutputChannels)
         bind(channel);
 
-    var["gNodes.nodes"] = mNodes;
+    var["gNodes"] = mpNodesBlock;
 
     // Get dimensions of ray dispatch.
     const uint2 targetDim = renderData.getDefaultTextureDims();
@@ -194,6 +194,16 @@ void FocalViz::setScene(RenderContext* pRenderContext, const ref<Scene>& pScene)
 
         mTracer.pProgram = Program::create(mpDevice, desc, mpScene->getSceneDefines());
     }
+
+    DefineList defines;
+    defines.add("DENSITY_NODES_BLOCK");
+    auto pPass = ComputePass::create(mpDevice, "RenderPasses\\FocalGuiding\\DensityNode.slang", "main", defines);
+    auto pReflector = pPass->getProgram()->getReflector()->getParameterBlock("gNodes");
+    FALCOR_ASSERT(pReflector);
+    // Bind resources to parameter block.
+    mpNodesBlock = ParameterBlock::create(mpDevice, pReflector);
+    auto nodes_var = mpNodesBlock->getRootVar();
+    nodes_var["nodes"] = mNodes;
 }
 
 void FocalViz::prepareVars()

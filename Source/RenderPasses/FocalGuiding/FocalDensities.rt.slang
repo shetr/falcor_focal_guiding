@@ -12,8 +12,8 @@ import Rendering.Lights.LightHelpers;
 
 import DensityNode;
 
-//RWStructuredBuffer<DensityNode> gNodes;
-DensityNodes gNodes;
+// RWStructuredBuffer<DensityNode> gNodes;
+ParameterBlock<DensityNodes> gNodes;
 //RWBuffer<float> gGlobalAccumulator;
 RWByteAddressBuffer gGlobalAccumulator;
 

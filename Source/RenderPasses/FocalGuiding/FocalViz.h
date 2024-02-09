@@ -30,6 +30,7 @@ private:
     // Internal state
     ref<Scene> mpScene; ///< Current scene.
     ref<Buffer> mNodes;
+    ref<ParameterBlock> mpNodesBlock;
 
     uint mNodesSize = 1;
     uint mMaxOctreeDepth = 3;

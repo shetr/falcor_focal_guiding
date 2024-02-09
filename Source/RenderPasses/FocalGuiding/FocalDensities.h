@@ -37,7 +37,7 @@ private:
     ref<SampleGenerator> mpSampleGenerator; ///< GPU sample generator.
     ref<Buffer> mNodes;
     ref<Buffer> mGlobalAccumulator;
-    //ref<ParameterBlock> mpNodesBlock;
+    ref<ParameterBlock> mpNodesBlock;
 
     uint mMaxBounces = 3;   
     uint mNodesSize = 1;
