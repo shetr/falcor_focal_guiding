@@ -74,6 +74,22 @@ struct ScatterRayData
     }
 };
 
+struct SpatialRayData
+{
+    float3 radiance;
+    float3 thp;       ///< Current path throughput. This is updated at each path vertex.
+    float3 origin;    ///< Next path segment origin.
+    float3 direction; ///< Next path segment direction.
+
+    __init()
+    {
+        this.radiance = float3(0, 0, 0);
+        this.thp = float3(1, 1, 1);
+        this.origin = float3(0, 0, 0);
+        this.direction = float3(0, 0, 0);
+    }
+}
+
 /** Setup ShadingData based on loaded vertex/material attributes for a hit point.
     \param[in] hit Hit information.
     \param[in] rayOrigin Ray origin.
@@ -152,6 +168,72 @@ void traceScatterRay(inout ScatterRayData rayData)
 
     uint rayFlags = 0;      // TODO: Set cull mode from the app
     TraceRay(gScene.rtAccel, rayFlags, 0xff /* instanceInclusionMask */, 0 /* hitIdx */, rayTypeCount, 0 /* missIdx */, ray, rayData);
+}
+
+void traceSpatialRay(inout SpatialRayData rayData)
+{
+    RayDesc ray;
+    ray.Origin = rayData.origin;
+    ray.Direction = rayData.direction;
+    ray.TMin = 0.f;
+    ray.TMax = kRayTMax;
+
+    uint rayFlags = 0; // TODO: Set cull mode from the app
+    TraceRay(gScene.rtAccel, rayFlags, 0xff /* instanceInclusionMask */, 2 /* hitIdx */, rayTypeCount, 2 /* missIdx */, ray, rayData);
+}
+
+float3 sampleDirectionByDensities(out float pdf, inout SampleGenerator sg)
+{
+    pdf = 1;
+    uint nodeIndex = 0;
+    AABB box = AABB(gSceneBoundsMin, gSceneBoundsMax);
+
+    uint depth = 0;
+    while (depth < MAX_OCTREE_DEPTH)
+    {
+        float r = sampleNext1D(sg);
+        float acc = 0;
+        uint childIndex = 0;
+        DensityChild child;
+        for (childIndex = 0; childIndex < 8; ++childIndex) {
+            child = gNodes.getChildNode(nodeIndex, childIndex);
+            acc += child.density;
+            if (r < acc) {
+                break;
+            }
+        }
+        if (childIndex >= 8) {
+            childIndex = uint(r * 8);
+        }
+        pdf *= child.density;
+        int3 axisIndices = unpackOctreeChildIndex(childIndex);
+        AABB childBox = shrinkBox(box, axisIndices);
+        nodeIndex = child.index;
+        box = childBox;
+        if (child.isLeaf()) {
+            break;
+        }
+        ++depth;
+    }
+    float3 rPos = sampleNext3D(sg);
+    return box.minPoint + rPos * box.extent();
+}
+
+SpatialRayData generateSpatialRay(const ShadingData sd, const IMaterialInstance mi, float3 rayOrigin, inout SampleGenerator sg)
+{
+    SpatialRayData rayData;
+    float pdf;
+    float3 dir = sampleDirectionByDensities(pdf, sg);
+    dir = normalize(dir);
+    pdf += mi.evalPdf(sd, dir, false);
+    float invPdf = 1 / pdf;
+
+    rayData.origin = rayOrigin;
+    rayData.direction = dir;
+    rayData.radiance = float3(0, 0, 0);
+    rayData.thp = mi.eval(sd, dir, sg) * invPdf;
+
+    return rayData;
 }
 
 /** Evaluates the direct illumination from analytic lights.
@@ -324,6 +406,13 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
             outColor += kUseAnalyticLights ? evalDirectAnalytic(sd, mi, sg) : float3(0.f);
         }
 
+        // spatial ray
+        {
+            SpatialRayData spatialRay = generateSpatialRay(sd, mi, rayOrigin, sg);
+            traceSpatialRay(spatialRay);
+            outColor += spatialRay.radiance;
+        }
+
         // Prepare ray payload.
         ScatterRayData rayData = ScatterRayData(sg);
 
@@ -339,7 +428,7 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
         }
 
         // Store contribution from scatter ray.
-        outColor += rayData.radiance;
+        //outColor += rayData.radiance;
     }
     else
     {
@@ -407,6 +496,44 @@ void shadowTriangleMeshAnyHit(inout ShadowRayData rayData, BuiltInTriangleInters
     VertexData v = getVertexData(instanceID, PrimitiveIndex(), attribs);
     const uint materialID = gScene.getMaterialID(instanceID);
     if (gScene.materials.alphaTest(v, materialID, 0.f)) IgnoreHit();
+}
+
+// spatial rays
+
+[shader("miss")]
+void spatialMiss(inout SpatialRayData rayData)
+{
+    rayData.radiance = float3(0);
+}
+
+[shader("closesthit")]
+void spatialTriangleMeshClosestHit(inout SpatialRayData rayData, BuiltInTriangleIntersectionAttributes attribs)
+{
+    TriangleHit triangleHit;
+    triangleHit.instanceID = getGeometryInstanceID();
+    triangleHit.primitiveIndex = PrimitiveIndex();
+    triangleHit.barycentrics = attribs.barycentrics;
+
+    HitInfo hit = HitInfo(triangleHit);
+
+    let lod = ExplicitLodTextureSampler(0.f);
+
+    // Load shading data.
+    ShadingData sd = loadShadingData(hit, rayData.origin, rayData.direction, lod);
+
+    // Create material instance.
+    let mi = gScene.materials.getMaterialInstance(sd, lod);
+
+    // rayData.radiance = float3(0);
+    float distance = length(sd.computeRayOrigin() - rayData.origin);
+    //rayData.radiance += (1 / distance) * rayData.thp * mi.getProperties(sd).emission;
+    rayData.radiance += rayData.thp * mi.getProperties(sd).emission;
+}
+
+[shader("anyhit")]
+void spatialTriangleMeshAnyHit(inout SpatialRayData rayData, BuiltInTriangleIntersectionAttributes attribs)
+{
+    rayData.radiance = float3(0);
 }
 
 //
