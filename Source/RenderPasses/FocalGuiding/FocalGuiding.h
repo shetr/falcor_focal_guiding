@@ -25,13 +25,26 @@ public:
     virtual bool onKeyEvent(const KeyboardEvent& keyEvent) override { return false; }
 
 private:
+    void parseProperties(const Properties& props);
     void prepareVars();
 
     // Internal state
     ref<Scene> mpScene; ///< Current scene.
+    ref<SampleGenerator> mpSampleGenerator; ///< GPU sample generator.
     ref<Buffer> mNodes;
+    ref<ParameterBlock> mpNodesBlock;
 
     uint mNodesSize = 1;
+    uint mMaxOctreeDepth = 3;
+
+    // Configuration
+    uint mMaxBounces = 3;               ///< Max number of indirect bounces (0 = none).
+    bool mComputeDirect = true;         ///< Compute direct illumination (otherwise indirect only).
+    bool mUseImportanceSampling = true; ///< Use importance sampling for materials.
+
+    // Runtime data
+    uint mFrameCount = 0; ///< Frame count since scene was loaded.
+    bool mOptionsChanged = false;
 
     // Ray tracing program.
     struct

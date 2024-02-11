@@ -30,16 +30,44 @@ const ChannelList kInputChannels = {
 const ChannelList kOutputChannels = {
     {"color", "gOutputColor", "Output color (sum of direct and indirect)", false, ResourceFormat::RGBA32Float},
 };
+
+const char kMaxBounces[] = "maxBounces";
+const char kComputeDirect[] = "computeDirect";
+const char kUseImportanceSampling[] = "useImportanceSampling";
 } // namespace
 
 FocalGuiding::FocalGuiding(ref<Device> pDevice, const Properties& props)
     : RenderPass(pDevice)
 {
+    parseProperties(props);
+
+    // Create a sample generator.
+    mpSampleGenerator = SampleGenerator::create(mpDevice, SAMPLE_GENERATOR_UNIFORM);
+    FALCOR_ASSERT(mpSampleGenerator);
+}
+
+void FocalGuiding::parseProperties(const Properties& props)
+{
+    for (const auto& [key, value] : props)
+    {
+        if (key == kMaxBounces)
+            mMaxBounces = value;
+        else if (key == kComputeDirect)
+            mComputeDirect = value;
+        else if (key == kUseImportanceSampling)
+            mUseImportanceSampling = value;
+        else
+            logWarning("Unknown property '{}' in SimplePathTracer properties.", key);
+    }
 }
 
 Properties FocalGuiding::getProperties() const
 {
-    return {};
+    Properties props;
+    props[kMaxBounces] = mMaxBounces;
+    props[kComputeDirect] = mComputeDirect;
+    props[kUseImportanceSampling] = mUseImportanceSampling;
+    return props;
 }
 
 RenderPassReflection FocalGuiding::reflect(const CompileData& compileData)
@@ -55,6 +83,14 @@ RenderPassReflection FocalGuiding::reflect(const CompileData& compileData)
 
 void FocalGuiding::execute(RenderContext* pRenderContext, const RenderData& renderData)
 {
+    // Update refresh flag if options that affect the output have changed.
+    Dictionary& dict = renderData.getDictionary();
+    if (mOptionsChanged)
+    {
+        auto flags = dict.getValue(kRenderPassRefreshFlags, RenderPassRefreshFlags::None);
+        dict[Falcor::kRenderPassRefreshFlags] = flags | Falcor::RenderPassRefreshFlags::RenderOptionsChanged;
+        mOptionsChanged = false;
+    }
 
     // If we have no scene, just clear the outputs and return.
     if (!mpScene)
@@ -86,6 +122,22 @@ void FocalGuiding::execute(RenderContext* pRenderContext, const RenderData& rend
         logWarning("Depth-of-field requires the '{}' input. Expect incorrect shading.", kInputViewDir);
     }
 
+    // Specialize program.
+    // These defines should not modify the program vars. Do not trigger program vars re-creation.
+    mTracer.pProgram->addDefine("MAX_BOUNCES", std::to_string(mMaxBounces));
+    mTracer.pProgram->addDefine("COMPUTE_DIRECT", mComputeDirect ? "1" : "0");
+    mTracer.pProgram->addDefine("USE_IMPORTANCE_SAMPLING", mUseImportanceSampling ? "1" : "0");
+    mTracer.pProgram->addDefine("USE_ANALYTIC_LIGHTS", mpScene->useAnalyticLights() ? "1" : "0");
+    mTracer.pProgram->addDefine("USE_EMISSIVE_LIGHTS", mpScene->useEmissiveLights() ? "1" : "0");
+    mTracer.pProgram->addDefine("USE_ENV_LIGHT", mpScene->useEnvLight() ? "1" : "0");
+    mTracer.pProgram->addDefine("USE_ENV_BACKGROUND", mpScene->useEnvBackground() ? "1" : "0");
+
+    mNodes = dict["gNodes"];
+    mNodesSize = dict["gNodesSize"];
+    mMaxOctreeDepth = dict["gMaxOctreeDepth"];
+
+    mTracer.pProgram->addDefine("MAX_OCTREE_DEPTH", std::to_string(mMaxOctreeDepth));
+
     // For optional I/O resources, set 'is_valid_<name>' defines to inform the program of which ones it can access.
     // TODO: This should be moved to a more general mechanism using Slang.
     mTracer.pProgram->addDefines(getValidResourceDefines(kInputChannels, renderData));
@@ -102,9 +154,9 @@ void FocalGuiding::execute(RenderContext* pRenderContext, const RenderData& rend
     var["CB"]["gNodesSize"] = mNodesSize;
     var["CB"]["gSceneBoundsMin"] = mpScene->getSceneBounds().minPoint;
     var["CB"]["gSceneBoundsMax"] = mpScene->getSceneBounds().maxPoint;
+    var["CB"]["gFrameCount"] = mFrameCount;
+    var["CB"]["gPRNGDimension"] = dict.keyExists(kRenderPassPRNGDimension) ? dict[kRenderPassPRNGDimension] : 0u;
 
-    Dictionary& dict = renderData.getDictionary();
-    dict["gNodes"] = mNodes;
     // renderData holds the requested resources
     // auto& pTexture = renderData.getTexture("src");
 
@@ -121,7 +173,10 @@ void FocalGuiding::execute(RenderContext* pRenderContext, const RenderData& rend
     for (auto channel : kOutputChannels)
         bind(channel);
 
-    var["gNodes"] = mNodes;
+    auto nodes_var = mpNodesBlock->getRootVar();
+    nodes_var["nodes"] = mNodes;
+
+    var["gNodes"] = mpNodesBlock;
 
     // Get dimensions of ray dispatch.
     const uint2 targetDim = renderData.getDefaultTextureDims();
@@ -129,9 +184,30 @@ void FocalGuiding::execute(RenderContext* pRenderContext, const RenderData& rend
 
     // Spawn the rays.
     mpScene->raytrace(pRenderContext, mTracer.pProgram.get(), mTracer.pVars, uint3(targetDim, 1));
+
+    mFrameCount++;
 }
 
-void FocalGuiding::renderUI(Gui::Widgets& widget) {}
+void FocalGuiding::renderUI(Gui::Widgets& widget)
+{
+    bool dirty = false;
+
+    dirty |= widget.var("Max bounces", mMaxBounces, 0u, 1u << 16);
+    widget.tooltip("Maximum path length for indirect illumination.\n0 = direct only\n1 = one indirect bounce etc.", true);
+
+    dirty |= widget.checkbox("Evaluate direct illumination", mComputeDirect);
+    widget.tooltip("Compute direct illumination.\nIf disabled only indirect is computed (when max bounces > 0).", true);
+
+    dirty |= widget.checkbox("Use importance sampling", mUseImportanceSampling);
+    widget.tooltip("Use importance sampling for materials", true);
+
+    // If rendering options that modify the output have changed, set flag to indicate that.
+    // In execute() we will pass the flag to other passes for reset of temporal data etc.
+    if (dirty)
+    {
+        mOptionsChanged = true;
+    }
+}
 
 void FocalGuiding::setScene(RenderContext* pRenderContext, const ref<Scene>& pScene)
 {
@@ -178,6 +254,16 @@ void FocalGuiding::setScene(RenderContext* pRenderContext, const ref<Scene>& pSc
 
         mTracer.pProgram = Program::create(mpDevice, desc, mpScene->getSceneDefines());
     }
+
+    DefineList defines;
+    defines.add("DENSITY_NODES_BLOCK");
+    auto pPass = ComputePass::create(mpDevice, "RenderPasses\\FocalGuiding\\DensityNode.slang", "main", defines);
+    auto pReflector = pPass->getProgram()->getReflector()->getParameterBlock("gNodes");
+    FALCOR_ASSERT(pReflector);
+    // Bind resources to parameter block.
+    mpNodesBlock = ParameterBlock::create(mpDevice, pReflector);
+    auto nodes_var = mpNodesBlock->getRootVar();
+    nodes_var["nodes"] = mNodes;
 }
 
 void FocalGuiding::prepareVars()
@@ -186,6 +272,7 @@ void FocalGuiding::prepareVars()
     FALCOR_ASSERT(mTracer.pProgram);
 
     // Configure program.
+    mTracer.pProgram->addDefines(mpSampleGenerator->getDefines());
     mTracer.pProgram->setTypeConformances(mpScene->getTypeConformances());
 
     // Create program variables for the current program.
@@ -193,19 +280,6 @@ void FocalGuiding::prepareVars()
     mTracer.pVars = RtProgramVars::create(mpDevice, mTracer.pProgram, mTracer.pBindingTable);
 
     auto var = mTracer.pVars->getRootVar();
-    ResourceBindFlags bindFlags = ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess;
-    MemoryType memoryType = MemoryType::DeviceLocal;
-    DensityNode initDensities[1] = {
-        DensityNode{{
-        {0, 0.0f, 0.5f},
-        {0, 0.0f, 0.9f},
-        {0, 0.0f, 0.5f},
-        {0, 0.0f, 0.9f},
-        {0, 0.0f, 0.5f},
-        {0, 0.0f, 0.9f},
-        {0, 0.0f, 0.5f},
-        {0, 0.0f, 1.0f}
-        }}
-    };
-    mNodes = mpDevice->createStructuredBuffer(var["gNodes"], mNodesSize, bindFlags, memoryType, initDensities);
+    mpSampleGenerator->bindShaderData(var);
+
 }
