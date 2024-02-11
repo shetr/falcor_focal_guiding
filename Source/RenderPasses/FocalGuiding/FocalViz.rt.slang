@@ -166,9 +166,11 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
         float hitDist = length(hitDir);
 
         NodeTravRef nodesStack[MAX_OCTREE_DEPTH];
+        float parentDensities[MAX_OCTREE_DEPTH];
         uint nodesStackSize = 0;
         // push first node
         nodesStack[nodesStackSize] = NodeTravRef(0);
+        parentDensities[nodesStackSize] = 1;
         ++nodesStackSize;
         AABB box = AABB(gSceneBoundsMin, gSceneBoundsMax);
         uint failsafe = 0;
@@ -190,6 +192,7 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
             {
                 uint nodeIndex = nodesStack[topIndex].node;
                 uint childIndex = nodesStack[topIndex].child;
+                float parentDensity = parentDensities[topIndex];
                 DensityChild child = gNodes.getChildNode(nodeIndex, childIndex);
                 int3 axisIndices = unpackOctreeChildIndex(childIndex);
                 AABB childBox = shrinkBox(box, axisIndices);
@@ -200,13 +203,15 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
                     float near = length(primaryRayDir * nearFar.x);
                     float far = length(primaryRayDir * nearFar.y);
                     if (near < hitDist) {
+                        float density = parentDensity * child.density;
                         if (child.isLeaf() || nodesStackSize >= MAX_OCTREE_DEPTH) {
-                            float density = child.density;
-                            densityAcc.addDensity(density / (float)gFrameCount);
+                            //densityAcc.addDensity(density / (float)gFrameCount);
+                            densityAcc.addDensity(density);
                         } else {
                             box = childBox;
                             // push node
                             nodesStack[nodesStackSize] = NodeTravRef(child.index);
+                            parentDensities[nodesStackSize] = density;
                             ++nodesStackSize;
                         }
                     }

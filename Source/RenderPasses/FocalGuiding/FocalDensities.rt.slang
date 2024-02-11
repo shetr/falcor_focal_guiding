@@ -189,6 +189,7 @@ void storeDensities(float3 rayOrigin, float3 rayDir, float3 hitPos, float contri
     float maxDensity = 0.0;
     float3 hitDir = hitPos - rayOrigin;
     float hitDist = length(hitDir);
+    float rayLength = length(rayDir);
 
     NodeTravRef nodesStack[MAX_OCTREE_DEPTH];
     uint nodesStackSize = 0;
@@ -204,9 +205,10 @@ void storeDensities(float3 rayOrigin, float3 rayDir, float3 hitPos, float contri
         float near = length(rayDir * nearFar.x);
         float far = length(rayDir * nearFar.y);
         if (near < hitDist) {
+            float length = (min(hitDist, far) - near) / rayLength;
             // gGlobalAccumulator[0] += contribution;
             //__atomicAdd(gGlobalAccumulator[0], contribution);
-            gGlobalAccumulator.InterlockedAddF32(0, contribution);
+            gGlobalAccumulator.InterlockedAddF32(0, length * contribution);
             //float globalAcc = gGlobalAccumulator.Load<float>(0);
             //gGlobalAccumulator.Store<float>(0, globalAcc + contribution);
         }
@@ -240,6 +242,7 @@ void storeDensities(float3 rayOrigin, float3 rayDir, float3 hitPos, float contri
                 float near = length(rayDir * nearFar.x);
                 float far = length(rayDir * nearFar.y);
                 if (near < hitDist) {
+                    float length = (min(hitDist, far) - near) / rayLength;
                     //__atomicAdd(gNodes[nodeIndex].childs[childIndex].accumulator, contribution);
                     // InterlockedAdd(gNodes[nodeIndex].childs[childIndex].accumulator, contribution);
                     // += contribution;
@@ -249,7 +252,7 @@ void storeDensities(float3 rayOrigin, float3 rayDir, float3 hitPos, float contri
                     //}
                     // float currDensity = gNodes[nodeIndex].childs[childIndex].accumulator / max(0.0001, toatlAcc);
                     // gNodes[nodeIndex].childs[childIndex].density = currDensity;
-                    gNodes.addToChildAccumulator(nodeIndex, childIndex, contribution);
+                    gNodes.addToChildAccumulator(nodeIndex, childIndex, length * contribution);
                     //gNodes[nodeIndex].childs[childIndex].accumulator += contribution;
                     float parentAcc = 1;
                     if (nodesStackSize > 1) {

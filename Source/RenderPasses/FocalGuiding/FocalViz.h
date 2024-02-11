@@ -36,9 +36,9 @@ private:
     uint mMaxOctreeDepth = 3;
 
     uint mFrameCount = 0;
-    uint mMaxSliderDensity = 1000;
+    uint mMaxSliderDensity = 1;
     float mMinDensity = 0.0f;
-    float mMaxDensity = 1.0f;
+    float mMaxDensity = 0.1f;
     bool mOptionsChanged = false;
 
     // Ray tracing program.
