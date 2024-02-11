@@ -116,6 +116,9 @@ void FocalViz::execute(RenderContext* pRenderContext, const RenderData& renderDa
     for (auto channel : kOutputChannels)
         bind(channel);
 
+    auto nodes_var = mpNodesBlock->getRootVar();
+    nodes_var["nodes"] = mNodes;
+
     var["gNodes"] = mpNodesBlock;
 
     // Get dimensions of ray dispatch.

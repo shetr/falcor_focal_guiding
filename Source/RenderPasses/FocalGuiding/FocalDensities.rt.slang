@@ -254,14 +254,17 @@ void storeDensities(float3 rayOrigin, float3 rayDir, float3 hitPos, float contri
                     float parentAcc = 1;
                     if (nodesStackSize > 1) {
                         uint parentNodeIndex = nodesStack[topIndex - 1].node;
-                        uint parentChildIndex = nodesStack[topIndex - 1].child;
+                        uint parentChildIndex = nodesStack[topIndex - 1].child - 1;
                         parentAcc = gNodes.getChildAccumulator(parentNodeIndex, parentChildIndex);
                     } else {
                         //parentAcc = gGlobalAccumulator[0];
                         //asfloat()
                         parentAcc = gGlobalAccumulator.Load<float>(0);
                     }
-                    //gNodes[nodeIndex].childs[childIndex].density = gNodes[nodeIndex].childs[childIndex].accumulator / parentAcc;
+                    // gNodes[nodeIndex].childs[childIndex].density = gNodes[nodeIndex].childs[childIndex].accumulator / parentAcc;
+                    if (parentAcc <= 0) {
+                        parentAcc = 1;
+                    }
                     gNodes.setChildDensity(nodeIndex, childIndex, gNodes.getChildAccumulator(nodeIndex, childIndex) / parentAcc);
                     if (child.isLeaf() || nodesStackSize >= MAX_OCTREE_DEPTH) {
                         // store leaf density

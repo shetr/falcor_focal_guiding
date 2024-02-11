@@ -118,6 +118,9 @@ void FocalDensities::execute(RenderContext* pRenderContext, const RenderData& re
     for (auto channel : kOutputChannels)
         bind(channel);
 
+    auto nodes_var = mpNodesBlock->getRootVar();
+    nodes_var["nodes"] = mNodes;
+
     var["gNodes"] = mpNodesBlock;
     var["gGlobalAccumulator"] = mGlobalAccumulator;
 
@@ -125,8 +128,13 @@ void FocalDensities::execute(RenderContext* pRenderContext, const RenderData& re
     const uint2 targetDim = renderData.getDefaultTextureDims();
     FALCOR_ASSERT(targetDim.x > 0 && targetDim.y > 0);
 
-    // Spawn the rays.
-    mpScene->raytrace(pRenderContext, mTracer.pProgram.get(), mTracer.pVars, uint3(targetDim, 1));
+    if (!mLimitedPasses || mFrameCount < mMaxFrameCount)
+    {
+        // Spawn the rays.
+        mpScene->raytrace(pRenderContext, mTracer.pProgram.get(), mTracer.pVars, uint3(targetDim, 1));
+
+        mFrameCount++;
+    }
 }
 
 void FocalDensities::renderUI(Gui::Widgets& widget)
@@ -136,6 +144,7 @@ void FocalDensities::renderUI(Gui::Widgets& widget)
     {
         printNodes();
     }
+    widget.checkbox("limited number of passes", mLimitedPasses);
 }
 
 void FocalDensities::setScene(RenderContext* pRenderContext, const ref<Scene>& pScene)
@@ -224,7 +233,7 @@ void FocalDensities::prepareVars()
     //std::vector<DensityNode> densityNodes = genRandomNodes();
     mNodesSize = (uint)densityNodes.size();
     //mNodes = mpDevice->createStructuredBuffer(var["gNodes"], mNodesSize, bindFlags, memoryType, densityNodes.data());
-    mNodes = mpDevice->createBuffer(mNodesSize, bindFlags | ResourceBindFlags::Shared, memoryType, densityNodes.data());
+    mNodes = mpDevice->createBuffer(mNodesSize * sizeof(DensityNode), bindFlags | ResourceBindFlags::Shared, memoryType, densityNodes.data());
     mpSampleGenerator->bindShaderData(var);
 
     float initAcc = 1.0f;
