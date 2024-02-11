@@ -80,6 +80,7 @@ struct SpatialRayData
     float3 thp;       ///< Current path throughput. This is updated at each path vertex.
     float3 origin;    ///< Next path segment origin.
     float3 direction; ///< Next path segment direction.
+    float3 hitPos;
 
     __init()
     {
@@ -87,6 +88,7 @@ struct SpatialRayData
         this.thp = float3(1, 1, 1);
         this.origin = float3(0, 0, 0);
         this.direction = float3(0, 0, 0);
+        this.hitPos = float3(0, 0, 0);
     }
 }
 
@@ -410,7 +412,10 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
         {
             SpatialRayData spatialRay = generateSpatialRay(sd, mi, rayOrigin, sg);
             traceSpatialRay(spatialRay);
-            outColor += spatialRay.radiance;
+            bool v = traceShadowRay(rayOrigin, spatialRay.direction, length(spatialRay.hitPos - spatialRay.origin));
+            if (v) {
+                outColor += spatialRay.radiance;
+            }
         }
 
         // Prepare ray payload.
@@ -524,8 +529,9 @@ void spatialTriangleMeshClosestHit(inout SpatialRayData rayData, BuiltInTriangle
     // Create material instance.
     let mi = gScene.materials.getMaterialInstance(sd, lod);
 
+    rayData.hitPos = sd.computeRayOrigin();
     // rayData.radiance = float3(0);
-    float distance = length(sd.computeRayOrigin() - rayData.origin);
+    float distance = length(rayData.hitPos - rayData.origin);
     //rayData.radiance += (1 / distance) * rayData.thp * mi.getProperties(sd).emission;
     rayData.radiance += rayData.thp * mi.getProperties(sd).emission;
 }
