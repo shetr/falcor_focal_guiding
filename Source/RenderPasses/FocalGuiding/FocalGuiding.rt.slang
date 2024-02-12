@@ -6,6 +6,7 @@ import Scene.Intersection;
 import Utils.Math.MathHelpers;
 import Utils.Geometry.GeometryHelpers;
 import Utils.Sampling.SampleGenerator;
+import Utils.Geometry.IntersectionHelpers;
 import Rendering.Lights.LightHelpers;
 
 import DensityNode;
@@ -221,13 +222,82 @@ float3 sampleDirectionByDensities(out float pdf, inout SampleGenerator sg)
     return box.minPoint + rPos * box.extent();
 }
 
+float getDirectionPdf(float3 origin, float3 dir)
+{
+    float pdf = 0;
+    NodeTravRef nodesStack[MAX_OCTREE_DEPTH];
+    float parentDensities[MAX_OCTREE_DEPTH];
+    uint nodesStackSize = 0;
+    // push first node
+    nodesStack[nodesStackSize] = NodeTravRef(0);
+    parentDensities[nodesStackSize] = 1;
+    ++nodesStackSize;
+    AABB box = AABB(gSceneBoundsMin, gSceneBoundsMax);
+
+    // origin should be inside the volume
+    float2 sceneNearFar;
+    bool sceneIntersected = intersectRayAABB(origin, dir, box.minPoint, box.maxPoint, sceneNearFar);
+    if (!sceneIntersected) {
+        return FLT_EPSILON;
+    }
+    dir = dir * sceneNearFar.y;
+
+    uint failsafe = 0;
+    while (nodesStackSize > 0 && failsafe < 9 * gNodesSize)
+    {
+        uint topIndex = nodesStackSize - 1;
+        if (nodesStack[topIndex].child >= 8) {
+            // pop node
+            --nodesStackSize;
+            // correct the box
+            if (nodesStackSize > 0) {
+                topIndex = nodesStackSize - 1;
+                uint currChildIndex = nodesStack[topIndex].child - 1;
+                int3 axisIndices = unpackOctreeChildIndex(currChildIndex);
+                box = extendBox(box, axisIndices);
+            }
+        }
+        else
+        {
+            uint nodeIndex = nodesStack[topIndex].node;
+            uint childIndex = nodesStack[topIndex].child;
+            float parentDensity = parentDensities[topIndex];
+            DensityChild child = gNodes.getChildNode(nodeIndex, childIndex);
+            int3 axisIndices = unpackOctreeChildIndex(childIndex);
+            AABB childBox = shrinkBox(box, axisIndices);
+
+            float2 nearFar;
+            bool intersected = intersectRayAABB(origin, dir, childBox.minPoint, childBox.maxPoint, nearFar);
+            if (intersected) {
+                float near = length(dir * nearFar.x);
+                float far = length(dir * nearFar.y);
+                float density = parentDensity * child.density;
+                if (child.isLeaf() || nodesStackSize >= MAX_OCTREE_DEPTH) {
+                    pdf += (far - near) * density;
+                } else {
+                    box = childBox;
+                    // push node
+                    nodesStack[nodesStackSize] = NodeTravRef(child.index);
+                    parentDensities[nodesStackSize] = density;
+                    ++nodesStackSize;
+                }
+            }
+
+            ++nodesStack[topIndex].child;
+        }
+        ++failsafe;
+    }
+    return pdf;
+}
+
 SpatialRayData generateSpatialRay(const ShadingData sd, const IMaterialInstance mi, float3 rayOrigin, inout SampleGenerator sg)
 {
     SpatialRayData rayData;
     float pdf;
     float3 dir = sampleDirectionByDensities(pdf, sg);
     dir = normalize(dir);
-    pdf += mi.evalPdf(sd, dir, false);
+    pdf = getDirectionPdf(rayOrigin, dir);
+    // pdf += mi.evalPdf(sd, dir, false);
     float invPdf = 1 / pdf;
 
     rayData.origin = rayOrigin;
@@ -531,8 +601,8 @@ void spatialTriangleMeshClosestHit(inout SpatialRayData rayData, BuiltInTriangle
 
     rayData.hitPos = sd.computeRayOrigin();
     // rayData.radiance = float3(0);
-    float distance = length(rayData.hitPos - rayData.origin);
-    //rayData.radiance += (1 / distance) * rayData.thp * mi.getProperties(sd).emission;
+    float distance2 = sqr(length(rayData.hitPos - rayData.origin));
+    //rayData.radiance += (1 / distance2) * rayData.thp * mi.getProperties(sd).emission;
     rayData.radiance += rayData.thp * mi.getProperties(sd).emission;
 }
 
