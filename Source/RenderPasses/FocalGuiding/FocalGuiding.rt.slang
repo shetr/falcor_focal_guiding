@@ -187,9 +187,9 @@ void traceSpatialRay(inout SpatialRayData rayData)
 
 float3 sampleDirectionByDensities(out float pdf, inout SampleGenerator sg)
 {
-    pdf = 1;
     uint nodeIndex = 0;
     AABB box = AABB(gSceneBoundsMin, gSceneBoundsMax);
+    pdf = 1 / box.volume();
 
     uint depth = 0;
     while (depth < MAX_OCTREE_DEPTH)
@@ -234,14 +234,6 @@ float getDirectionPdf(float3 origin, float3 dir)
     ++nodesStackSize;
     AABB box = AABB(gSceneBoundsMin, gSceneBoundsMax);
 
-    // origin should be inside the volume
-    float2 sceneNearFar;
-    bool sceneIntersected = intersectRayAABB(origin, dir, box.minPoint, box.maxPoint, sceneNearFar);
-    if (!sceneIntersected) {
-        return FLT_EPSILON;
-    }
-    dir = dir * sceneNearFar.y;
-
     uint failsafe = 0;
     while (nodesStackSize > 0 && failsafe < 9 * gNodesSize)
     {
@@ -273,7 +265,7 @@ float getDirectionPdf(float3 origin, float3 dir)
                 float far = length(dir * nearFar.y);
                 float density = parentDensity * child.density;
                 if (child.isLeaf() || nodesStackSize >= MAX_OCTREE_DEPTH) {
-                    pdf += (far - near) * density;
+                    pdf += (pow(far, 3) - pow(near, 3)) * density / 3;
                 } else {
                     box = childBox;
                     // push node
@@ -297,7 +289,7 @@ SpatialRayData generateSpatialRay(const ShadingData sd, const IMaterialInstance 
     float3 dir = sampleDirectionByDensities(pdf, sg);
     dir = normalize(dir);
     pdf = getDirectionPdf(rayOrigin, dir);
-    // pdf += mi.evalPdf(sd, dir, false);
+    // pdf += mi.evalPdf(sd, dir, true);
     float invPdf = 1 / pdf;
 
     rayData.origin = rayOrigin;
