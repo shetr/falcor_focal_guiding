@@ -265,7 +265,7 @@ float getDirectionPdf(float3 origin, float3 dir)
                 float far = length(dir * nearFar.y);
                 float density = parentDensity * child.density;
                 if (child.isLeaf() || nodesStackSize >= MAX_OCTREE_DEPTH) {
-                    pdf += (pow(far, 3) - pow(near, 3)) * density / 3;
+                    pdf += (pow(far, 3) - pow(near, 3)) * child.density / 3;
                 } else {
                     box = childBox;
                     // push node
@@ -289,7 +289,7 @@ SpatialRayData generateSpatialRay(const ShadingData sd, const IMaterialInstance 
     float3 dir = sampleDirectionByDensities(pdf, sg);
     dir = normalize(dir);
     pdf = getDirectionPdf(rayOrigin, dir);
-    // pdf += mi.evalPdf(sd, dir, true);
+    //pdf += mi.evalPdf(sd, dir, true);
     float invPdf = 1 / pdf;
 
     rayData.origin = rayOrigin;
