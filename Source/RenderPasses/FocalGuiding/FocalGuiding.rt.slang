@@ -265,7 +265,7 @@ float getDirectionPdf(float3 origin, float3 dir)
                 float far = length(dir * nearFar.y);
                 float density = parentDensity * child.density;
                 if (child.isLeaf() || nodesStackSize >= MAX_OCTREE_DEPTH) {
-                    pdf += (pow(far, 3) - pow(near, 3)) * child.density / 3;
+                    pdf += (pow(far, 3) - pow(near, 3)) * density / 3;
                 } else {
                     box = childBox;
                     // push node
@@ -282,20 +282,20 @@ float getDirectionPdf(float3 origin, float3 dir)
     return pdf;
 }
 
-SpatialRayData generateSpatialRay(const ShadingData sd, const IMaterialInstance mi, float3 rayOrigin, inout SampleGenerator sg)
+SpatialRayData generateSpatialRay(const ShadingData sd, const IMaterialInstance mi, float3 rayOrigin, inout SampleGenerator sg, float3 thp)
 {
     SpatialRayData rayData;
     float pdf;
     float3 dir = sampleDirectionByDensities(pdf, sg);
     dir = normalize(dir);
     pdf = getDirectionPdf(rayOrigin, dir);
-    //pdf += mi.evalPdf(sd, dir, true);
+    pdf += mi.evalPdf(sd, dir, true);
     float invPdf = 1 / pdf;
 
     rayData.origin = rayOrigin;
     rayData.direction = dir;
     rayData.radiance = float3(0, 0, 0);
-    rayData.thp = mi.eval(sd, dir, sg) * invPdf;
+    rayData.thp = thp * mi.eval(sd, dir, sg) * invPdf;
 
     return rayData;
 }
@@ -358,8 +358,11 @@ bool generateScatterRay(const ShadingData sd, const IMaterialInstance mi, bool i
         {
             rayData.origin = sd.computeRayOrigin(false);
         }
+        float pdf = mi.evalPdf(sd, rayData.direction, kUseImportanceSampling);
+        float spatialPdf = getDirectionPdf(rayData.origin, rayData.direction);
+        float weight = pdf / (spatialPdf + pdf);
         rayData.direction = bsdfSample.wo;
-        rayData.thp *= bsdfSample.weight;
+        rayData.thp *= bsdfSample.weight * weight;
         return any(rayData.thp > 0.f);
     }
 
@@ -405,6 +408,16 @@ void handleHit(const HitInfo hit, inout ScatterRayData rayData)
     {
         float3 Lr = evalDirectAnalytic(sd, mi, rayData.sg);
         rayData.radiance += rayData.thp * Lr;
+    }
+
+    // spatial ray sampling
+    {
+        SpatialRayData spatialRay = generateSpatialRay(sd, mi, rayOrigin, rayData.sg, rayData.thp);
+        traceSpatialRay(spatialRay);
+        bool v = traceShadowRay(rayOrigin, spatialRay.direction, length(spatialRay.hitPos - spatialRay.origin));
+        if (v) {
+            rayData.radiance += spatialRay.radiance;
+        }
     }
 
     // Generate scatter ray for the next path segment.
@@ -471,14 +484,14 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
         }
 
         // spatial ray
-        {
-            SpatialRayData spatialRay = generateSpatialRay(sd, mi, rayOrigin, sg);
-            traceSpatialRay(spatialRay);
-            bool v = traceShadowRay(rayOrigin, spatialRay.direction, length(spatialRay.hitPos - spatialRay.origin));
-            if (v) {
-                outColor += spatialRay.radiance;
-            }
-        }
+        //{
+        //    SpatialRayData spatialRay = generateSpatialRay(sd, mi, rayOrigin, sg);
+        //    traceSpatialRay(spatialRay);
+        //    bool v = traceShadowRay(rayOrigin, spatialRay.direction, length(spatialRay.hitPos - spatialRay.origin));
+        //    if (v) {
+        //        outColor += spatialRay.radiance;
+        //    }
+        //}
 
         // Prepare ray payload.
         ScatterRayData rayData = ScatterRayData(sg);
@@ -495,7 +508,7 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
         }
 
         // Store contribution from scatter ray.
-        //outColor += rayData.radiance;
+        outColor += rayData.radiance;
     }
     else
     {
