@@ -265,7 +265,8 @@ float getDirectionPdf(float3 origin, float3 dir)
                 float far = length(dir * nearFar.y);
                 float density = parentDensity * child.density;
                 if (child.isLeaf() || nodesStackSize >= MAX_OCTREE_DEPTH) {
-                    pdf += (pow(far, 3) - pow(near, 3)) * density / 3;
+                    //pdf += (pow(far, 3) - pow(near, 3)) * density / 3;
+                    pdf += (far - near) * density / childBox.volume();
                 } else {
                     box = childBox;
                     // push node
@@ -411,6 +412,7 @@ void handleHit(const HitInfo hit, inout ScatterRayData rayData)
     }
 
     // spatial ray sampling
+    if (kComputeDirect || rayData.pathLength > 0)
     {
         SpatialRayData spatialRay = generateSpatialRay(sd, mi, rayOrigin, rayData.sg, rayData.thp);
         traceSpatialRay(spatialRay);
@@ -484,7 +486,7 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
         }
 
         // spatial ray
-        if (kMaxBounces > 0)
+        if (kComputeDirect && kMaxBounces > 0)
         {
             SpatialRayData spatialRay = generateSpatialRay(sd, mi, rayOrigin, sg, 1);
             traceSpatialRay(spatialRay);
