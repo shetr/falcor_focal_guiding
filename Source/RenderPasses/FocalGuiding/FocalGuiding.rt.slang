@@ -484,14 +484,15 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
         }
 
         // spatial ray
-        //{
-        //    SpatialRayData spatialRay = generateSpatialRay(sd, mi, rayOrigin, sg);
-        //    traceSpatialRay(spatialRay);
-        //    bool v = traceShadowRay(rayOrigin, spatialRay.direction, length(spatialRay.hitPos - spatialRay.origin));
-        //    if (v) {
-        //        outColor += spatialRay.radiance;
-        //    }
-        //}
+        if (kMaxBounces > 0)
+        {
+            SpatialRayData spatialRay = generateSpatialRay(sd, mi, rayOrigin, sg, 1);
+            traceSpatialRay(spatialRay);
+            bool v = traceShadowRay(rayOrigin, spatialRay.direction, length(spatialRay.hitPos - spatialRay.origin));
+            if (v) {
+                outColor += spatialRay.radiance;
+            }
+        }
 
         // Prepare ray payload.
         ScatterRayData rayData = ScatterRayData(sg);
