@@ -314,23 +314,23 @@ void handleHit(const HitInfo hit, inout ScatterRayData rayData)
         rayData.radiance += rayData.thp * mi.getProperties(sd).emission;
     }
 
+    // Compute ray origin for new rays spawned from the hit.
+    float3 nextRayOrigin = sd.computeRayOrigin();
+
     // Check whether to terminate based on max depth.
     if (rayData.pathLength >= kMaxBounces)
     {
+        rayData.origin = nextRayOrigin;
         rayData.terminated = true;
         return;
     }
 
-    // Compute ray origin for new rays spawned from the hit.
-    float3 rayOrigin = sd.computeRayOrigin();
-
-    float contribution = dot(float3(0.299, 0.587, 0.114), rayData.radiance);
-
-    storeDensities(rayData.origin, rayData.direction, rayOrigin, contribution);
+    //float contribution = dot(float3(0.299, 0.587, 0.114), rayData.radiance);
+    //storeDensities(rayData.origin, rayData.direction, nextRayOrigin, contribution);
 
     // Generate scatter ray for the next path segment.
     // The raygen shader will continue the path based on the returned payload.
-    if (!generateScatterRay(sd, mi, isCurveHit, rayOrigin, rayData))
+    if (!generateScatterRay(sd, mi, isCurveHit, nextRayOrigin, rayData))
     {
         rayData.terminated = true;
         return;
@@ -380,12 +380,33 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
         // Generate scatter ray.
         if (!generateScatterRay(sd, mi, false, rayOrigin, rayData)) rayData.terminated = true;
 
+        float3 origins[MAX_BOUNCES + 2];
+        float contributions[MAX_BOUNCES + 1];
+
         // Follow path into the scene and compute its total contribution.
-        for (uint depth = 0; depth <= kMaxBounces && !rayData.terminated; depth++)
+        int depth = 0;
+        for (; depth <= kMaxBounces && !rayData.terminated; depth++)
         {
+            origins[depth] = rayData.origin;
             // Trace scatter ray. If it hits geometry, the closest hit shader samples
             // direct illumination and generates the next scatter ray.
             traceScatterRay(rayData);
+
+            contributions[depth] = dot(float3(0.299, 0.587, 0.114), rayData.radiance);
+        }
+        int depthCount = depth;
+        origins[depthCount] = rayData.origin;
+        for (int depth = depthCount - 1; depth > 0; depth--) {
+            contributions[depth] -= contributions[depth - 1];
+        }
+        for (int depth = depthCount - 2; depth >= 0; depth--) {
+            contributions[depth] += contributions[depth + 1];
+        }
+        for (int depth = 0; depth < depthCount; depth++) {
+            float3 origin = origins[depth];
+            float3 hitPos = origins[depth + 1];
+            float3 dir = normalizeSafe(hitPos - origin);
+            storeDensities(origin, dir, hitPos, contributions[depth]);
         }
 
         // Store contribution from scatter ray.

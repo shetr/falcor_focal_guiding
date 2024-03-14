@@ -6,7 +6,7 @@ def render_graph_FocalGuiding():
     g.addPass(AccumulatePass, "AccumulatePass")
     ToneMapper = createPass("ToneMapper", {'autoExposure': False, 'exposureCompensation': 0.0})
     g.addPass(ToneMapper, "ToneMapper")
-    FocalGuiding = createPass("FocalGuiding", {'maxBounces': 1, 'computeDirect': True})
+    FocalGuiding = createPass("FocalGuiding", {'maxBounces': 3, 'computeDirect': True})
     g.addPass(FocalGuiding, "FocalGuiding")
     VBufferRT = createPass("VBufferRT", {'samplePattern': 'Stratified', 'sampleCount': 16})
     g.addPass(VBufferRT, "VBufferRT")
