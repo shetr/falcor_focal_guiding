@@ -227,7 +227,7 @@ float3 sampleDirectionByDensities(float3 origin, inout SampleGenerator sg)
 {
     float pointPdf;
     float3 samplePoint = samplePointByDensities(pointPdf, sg);
-    return samplePoint - origin;
+    return normalize(samplePoint - origin);
 }
 
 float getDirectionPdf(float3 origin, float3 dir)
@@ -297,7 +297,6 @@ SpatialRayData generateSpatialRay(const ShadingData sd, const IMaterialInstance 
 {
     SpatialRayData rayData;
     float3 dir = sampleDirectionByDensities(rayOrigin, sg);
-    dir = normalize(dir);
     float pdf = getDirectionPdf(rayOrigin, dir);
     pdf += mi.evalPdf(sd, dir, true);
     float invPdf = 1 / pdf;
@@ -351,20 +350,25 @@ float3 evalDirectAnalytic(const ShadingData sd, const IMaterialInstance mi, inou
 
 void generateGuidedRay(const ShadingData sd, const IMaterialInstance mi, float3 rayOrigin, inout ScatterRayData rayData)
 {
-    float3 dir = sampleDirectionByDensities(rayData.origin, rayData.sg);
-    dir = normalize(dir);
-    float pdf = getDirectionPdf(rayData.origin, dir);
+    float3 dir = sampleDirectionByDensities(rayOrigin, rayData.sg);
+
+    const uint lobeTypes = mi.getLobeTypes(sd);
+    const bool hasReflection = lobeTypes & uint(LobeType::Reflection);
+    const bool hasTransmission = lobeTypes & uint(LobeType::Transmission);
+    float NdotL = dot(sd.getOrientedFaceNormal(), dir);
+    // if ((NdotL <= kMinCosTheta && !hasTransmission) || (NdotL >= -kMinCosTheta && !hasReflection))
+    //     return false;
+
+    rayOrigin = computeRayOrigin(sd.posW, dot(sd.faceN, dir) >= 0.f ? sd.faceN : -sd.faceN);
+
+    float pdf = getDirectionPdf(rayOrigin, dir);
     // maybe MIS in the future
     // pdf += mi.evalPdf(sd, dir, true);
     float invPdf = 1 / pdf;
 
-    // TODO: manualy check for LobeType::Transmission and recompute origin with sd.computeRayOrigin(false)
-
     rayData.origin = rayOrigin;
     rayData.direction = dir;
     rayData.thp *= mi.eval(sd, dir, rayData.sg) * invPdf;
-    // rayData.thp *= mi.eval(sd, dir, rayData.sg);
-    // rayData.thp *= invPdf;
 }
 
 /** Generate a new scatter ray or terminate.
@@ -491,6 +495,7 @@ void handleHit(const HitInfo hit, inout ScatterRayData rayData)
         // Generate scatter ray for the next path segment.
         // The raygen shader will continue the path based on the returned payload.
         generateGuidedRay(sd, mi, rayOrigin, rayData);
+        //generateSphericalRay(sd, mi, rayOrigin, rayData);
     } else {
         // Generate scatter ray for the next path segment.
         // The raygen shader will continue the path based on the returned payload.
@@ -575,6 +580,7 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
             // Generate scatter ray for the next path segment.
             // The raygen shader will continue the path based on the returned payload.
             generateGuidedRay(sd, mi, rayOrigin, rayData);
+            //generateSphericalRay(sd, mi, rayOrigin, rayData);
         } else {
             // Generate scatter ray.
             if (!generateScatterRay(sd, mi, false, rayOrigin, rayData)) rayData.terminated = true;
