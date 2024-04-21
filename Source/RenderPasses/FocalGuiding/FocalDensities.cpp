@@ -283,14 +283,14 @@ DensityNode randNode()
 DensityNode emptyNode()
 {
     return DensityNode{
-        {{0, 1.0f, 0.0f},
-         {0, 1.0f, 0.0f},
-         {0, 1.0f, 0.0f},
-         {0, 1.0f, 0.0f},
-         {0, 1.0f, 0.0f},
-         {0, 1.0f, 0.0f},
-         {0, 1.0f, 0.0f},
-         {0, 1.0f, 0.0f}}};
+        {{0, 1.0f, 1.0f / 8.0f},
+         {0, 1.0f, 1.0f / 8.0f},
+         {0, 1.0f, 1.0f / 8.0f},
+         {0, 1.0f, 1.0f / 8.0f},
+         {0, 1.0f, 1.0f / 8.0f},
+         {0, 1.0f, 1.0f / 8.0f},
+         {0, 1.0f, 1.0f / 8.0f},
+         {0, 1.0f, 1.0f / 8.0f}}};
 }
 
 std::vector<DensityNode> FocalDensities::genUniformNodes(uint depth, bool random) const

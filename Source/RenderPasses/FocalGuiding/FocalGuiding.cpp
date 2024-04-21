@@ -156,6 +156,7 @@ void FocalGuiding::execute(RenderContext* pRenderContext, const RenderData& rend
     var["CB"]["gSceneBoundsMax"] = mpScene->getSceneBounds().maxPoint;
     var["CB"]["gFrameCount"] = mFrameCount;
     var["CB"]["gPRNGDimension"] = dict.keyExists(kRenderPassPRNGDimension) ? dict[kRenderPassPRNGDimension] : 0u;
+    var["CB"]["gGuidedRayProb"] = mGuidedRayProb;
 
     // renderData holds the requested resources
     // auto& pTexture = renderData.getTexture("src");
@@ -194,6 +195,9 @@ void FocalGuiding::renderUI(Gui::Widgets& widget)
 
     dirty |= widget.slider("Max bounces", mMaxBounces, 0u, 5u);
     widget.tooltip("Maximum path length for indirect illumination.\n0 = direct only\n1 = one indirect bounce etc.", true);
+
+    dirty |= widget.slider("Guided ray prob", mGuidedRayProb, 0.0f, 1.0f);
+    widget.tooltip("Probability of selecting guided ray over scattered ray in one step of the path", true);
 
     dirty |= widget.checkbox("Evaluate direct illumination", mComputeDirect);
     widget.tooltip("Compute direct illumination.\nIf disabled only indirect is computed (when max bounces > 0).", true);
