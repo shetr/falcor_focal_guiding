@@ -21,18 +21,34 @@ const ChannelList kInputChannels = {
 const ChannelList kOutputChannels = {
     {"color", "gOutputColor", "Output color (sum of direct and indirect)", false, ResourceFormat::RGBA32Float},
 };
+
+const char kMaxPassCount[] = "maxPasses";
+const char kLimitedPasses[] = "limitedPasses";
 } // namespace
 
 FocalDensities::FocalDensities(ref<Device> pDevice, const Properties& props)
     : RenderPass(pDevice)
 {
+    for (const auto& [key, value] : props)
+    {
+        if (key == kMaxPassCount)
+            mMaxPassCount = value;
+        else if (key == kLimitedPasses)
+            mLimitedPasses = value;
+        else
+            logWarning("Unknown property '{}' in FocalDensities properties.", key);
+    }
+
     mpSampleGenerator = SampleGenerator::create(mpDevice, SAMPLE_GENERATOR_UNIFORM);
     FALCOR_ASSERT(mpSampleGenerator);
 }
 
 Properties FocalDensities::getProperties() const
 {
-    return {};
+    Properties props;
+    props[kMaxPassCount] = mMaxPassCount;
+    props[kLimitedPasses] = mLimitedPasses;
+    return props;
 }
 
 RenderPassReflection FocalDensities::reflect(const CompileData& compileData)

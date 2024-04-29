@@ -57,7 +57,7 @@ void FocalGuiding::parseProperties(const Properties& props)
         else if (key == kUseImportanceSampling)
             mUseImportanceSampling = value;
         else
-            logWarning("Unknown property '{}' in SimplePathTracer properties.", key);
+            logWarning("Unknown property '{}' in FocalGuiding properties.", key);
     }
 }
 

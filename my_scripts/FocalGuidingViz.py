@@ -2,7 +2,7 @@ from falcor import *
 
 def render_graph_FocalGuidingViz():
     g = RenderGraph("FocalGuidingViz")
-    FocalDensities = createPass("FocalDensities", {})
+    FocalDensities = createPass("FocalDensities", {'maxPasses': 5, 'limitedPasses': True})
     g.addPass(FocalDensities, "FocalDensities")
     FocalViz = createPass("FocalViz", {})
     g.addPass(FocalViz, "FocalViz")

@@ -10,7 +10,7 @@ def render_graph_FocalGuiding():
     g.addPass(FocalGuiding, "FocalGuiding")
     VBufferRT = createPass("VBufferRT", {'samplePattern': 'Stratified', 'sampleCount': 16})
     g.addPass(VBufferRT, "VBufferRT")
-    FocalDensities = createPass("FocalDensities", {})
+    FocalDensities = createPass("FocalDensities", {'maxPasses': 5, 'limitedPasses': True})
     g.addPass(FocalDensities, "FocalDensities")
     g.addEdge("VBufferRT.vbuffer", "FocalDensities.vbuffer")
     g.addEdge("VBufferRT.viewW", "FocalDensities.viewW")
