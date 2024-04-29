@@ -128,12 +128,12 @@ void FocalDensities::execute(RenderContext* pRenderContext, const RenderData& re
     const uint2 targetDim = renderData.getDefaultTextureDims();
     FALCOR_ASSERT(targetDim.x > 0 && targetDim.y > 0);
 
-    if (!mLimitedPasses || mFrameCount < mMaxFrameCount)
+    if (!mPause && (!mLimitedPasses || mPassCount < mMaxPassCount))
     {
         // Spawn the rays.
         mpScene->raytrace(pRenderContext, mTracer.pProgram.get(), mTracer.pVars, uint3(targetDim, 1));
 
-        mFrameCount++;
+        mPassCount++;
     }
 }
 
@@ -144,7 +144,20 @@ void FocalDensities::renderUI(Gui::Widgets& widget)
     {
         printNodes();
     }
-    widget.checkbox("limited number of passes", mLimitedPasses);
+    bool setDensitiesToUniform = widget.button("set uniform");
+    if (setDensitiesToUniform)
+    {
+        setUniformNodes();
+    }
+    widget.checkbox("pause", mPause);
+    bool recomputeDensities = widget.button("recompute");
+    if (recomputeDensities)
+    {
+        setUniformNodes();
+        mPassCount = 0;
+    }
+    widget.checkbox("limited passes", mLimitedPasses);
+    widget.slider("max passes", mMaxPassCount, 0u, 50u);
 }
 
 void FocalDensities::setScene(RenderContext* pRenderContext, const ref<Scene>& pScene)
@@ -291,6 +304,15 @@ DensityNode emptyNode()
          {0, 1.0f, 1.0f / 8.0f},
          {0, 1.0f, 1.0f / 8.0f},
          {0, 1.0f, 1.0f / 8.0f}}};
+}
+
+void FocalDensities::setUniformNodes()
+{
+    std::vector<DensityNode> uniformNodes = genUniformNodes(mMaxOctreeDepth, false);
+    mNodes->setBlob(uniformNodes.data(), 0, uniformNodes.size() * sizeof(DensityNode));
+
+    float initAcc = 1.0f;
+    mGlobalAccumulator->setBlob(&initAcc, 0, sizeof(float));
 }
 
 std::vector<DensityNode> FocalDensities::genUniformNodes(uint depth, bool random) const

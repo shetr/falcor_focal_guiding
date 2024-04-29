@@ -29,6 +29,7 @@ private:
 
     void printNodes();
 
+    void setUniformNodes();
     std::vector<DensityNode> genUniformNodes(uint depth, bool random) const;
     std::vector<DensityNode> genRandomNodes() const;
 
@@ -43,10 +44,11 @@ private:
     uint mNodesSize = 1;
     uint mMaxOctreeDepth = 3;
 
+    bool mPause = false;
     bool mLimitedPasses = true;
-    uint mMaxFrameCount = 5;
+    uint mMaxPassCount = 5;
 
-    uint mFrameCount = 0;
+    uint mPassCount = 0;
 
     // Ray tracing program.
     struct
