@@ -133,6 +133,8 @@ bool traceShadowRay(float3 origin, float3 dir, float distance)
     return rayData.visible;
 }
 
+#define SHOW_NORMALS
+
 float3 tracePath(const uint2 pixel, const uint2 frameDim)
 {
     float3 outColor = float3(0.f);
@@ -227,6 +229,10 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
 
         outColor = outColor * (1 - t) + densityVizColor * t;
         //outColor *= densityVizColor;
+
+#ifdef SHOW_NORMALS
+        outColor = (sd.getOrientedFaceNormal() + float3(1)) * 0.5;
+#endif
     }
     else
     {

@@ -437,6 +437,9 @@ void generateSphericalRay(const ShadingData sd, const IMaterialInstance mi, floa
     rayData.thp *= mi.eval(sd, dir, rayData.sg) * invPdf;
 }
 
+// #define VIZ_DIR
+#define VIZ_DIR_DEPTH 1
+
 /** Process a hit.
     Loads the shading data, samples analytic lights and samples a new scatter ray.
     Terminates the path if maximum number of bounces is reached.
@@ -455,13 +458,20 @@ void handleHit(const HitInfo hit, inout ScatterRayData rayData)
     // Create material instance.
     let mi = gScene.materials.getMaterialInstance(sd, lod);
 
+#ifndef VIZ_DIR
     // Add emitted light.
     if (kUseEmissiveLights && (kComputeDirect || rayData.pathLength > 0))
     {
         rayData.radiance += rayData.thp * mi.getProperties(sd).emission;
-        //rayData.radiance += mi.getProperties(sd).emission;
-        //rayData.radiance = rayData.thp;
+        // rayData.radiance += mi.getProperties(sd).emission;
+        // rayData.radiance = rayData.thp;
     }
+#else
+    if (rayData.pathLength == VIZ_DIR_DEPTH)
+    {
+        rayData.radiance = (rayData.direction + float3(1)) * 0.5;
+    }
+#endif
 
     // Check whether to terminate based on max depth.
     if (rayData.pathLength >= kMaxBounces)
@@ -473,12 +483,14 @@ void handleHit(const HitInfo hit, inout ScatterRayData rayData)
     // Compute ray origin for new rays spawned from the hit.
     float3 rayOrigin = sd.computeRayOrigin();
 
+#ifndef VIZ_DIR
     // Add contribution of direct light from analytic lights.
     if (kUseAnalyticLights)
     {
         float3 Lr = evalDirectAnalytic(sd, mi, rayData.sg);
         rayData.radiance += rayData.thp * Lr;
     }
+#endif
 
     // spatial ray sampling
     //if (kComputeDirect || rayData.pathLength > 0)
