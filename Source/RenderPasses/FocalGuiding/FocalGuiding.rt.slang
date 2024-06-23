@@ -608,6 +608,8 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
 
         // Store contribution from scatter ray.
         outColor += rayData.radiance;
+        // test random gen
+        // outColor = float3(sampleNext1D(sg), sampleNext1D(sg), sampleNext1D(sg));
     }
     else
     {

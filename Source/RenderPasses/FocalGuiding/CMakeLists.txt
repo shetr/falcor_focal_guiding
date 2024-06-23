@@ -12,6 +12,9 @@ target_sources(FocalGuiding PRIVATE
     FocalViz.rt.slang
     DensityNode.h
     DensityNode.slang
+    GuidedRayViz.cpp
+    GuidedRayViz.h
+    GuidedRayViz.slang
 )
 
 target_copy_shaders(FocalGuiding RenderPasses/FocalGuiding)
