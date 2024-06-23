@@ -7,7 +7,7 @@ using namespace Falcor;
 class GuidedRayViz : public RenderPass
 {
 public:
-    FALCOR_PLUGIN_CLASS(GuidedRayViz, "GuidedRayViz", "Insert pass description here.");
+    FALCOR_PLUGIN_CLASS(GuidedRayViz, "GuidedRayViz", "ray vizulalisation");
 
     static ref<GuidedRayViz> create(ref<Device> pDevice, const Properties& props) { return make_ref<GuidedRayViz>(pDevice, props); }
 
@@ -26,10 +26,14 @@ private:
     void prepareVars();
 
     ref<Buffer> mNodes;
-
     uint mNodesSize = 1;
     uint mMaxOctreeDepth = 3;
 
     // Internal state
     ref<Scene> mpScene;
+
+    ref<Program> mpProgram;
+    ref<GraphicsState> mpGraphicsState;
+    ref<RasterizerState> mpRasterState;
+    ref<ProgramVars> mpVars;
 };

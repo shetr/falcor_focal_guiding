@@ -3,12 +3,14 @@
 #include "RenderGraph/RenderPassStandardFlags.h"
 #include "FocalDensities.h"
 #include "FocalViz.h"
+#include "GuidedRayViz.h"
 
 extern "C" FALCOR_API_EXPORT void registerPlugin(Falcor::PluginRegistry& registry)
 {
     registry.registerClass<RenderPass, FocalGuiding>();
     registry.registerClass<RenderPass, FocalDensities>();
     registry.registerClass<RenderPass, FocalViz>();
+    registry.registerClass<RenderPass, GuidedRayViz>();
 }
 
 namespace
