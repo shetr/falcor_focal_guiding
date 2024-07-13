@@ -72,5 +72,7 @@ void GuidedRayViz::setScene(RenderContext* pRenderContext, const ref<Scene>& pSc
 
 void GuidedRayViz::prepareVars()
 {
-    
+    // mNodes =
+    //     mpDevice->createBuffer(mNodesSize * sizeof(DensityNode), bindFlags | ResourceBindFlags::Shared, memoryType, densityNodes.data());
+    // mpDevice->createBuffer()
 }

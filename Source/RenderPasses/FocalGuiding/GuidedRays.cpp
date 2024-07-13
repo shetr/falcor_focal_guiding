@@ -1,23 +1,10 @@
-#include "FocalGuiding.h"
+#include "GuidedRays.h"
 #include "RenderGraph/RenderPassHelpers.h"
 #include "RenderGraph/RenderPassStandardFlags.h"
-#include "FocalDensities.h"
-#include "FocalViz.h"
-#include "GuidedRayViz.h"
-#include "GuidedRays.h"
-
-extern "C" FALCOR_API_EXPORT void registerPlugin(Falcor::PluginRegistry& registry)
-{
-    registry.registerClass<RenderPass, FocalGuiding>();
-    registry.registerClass<RenderPass, FocalDensities>();
-    registry.registerClass<RenderPass, FocalViz>();
-    registry.registerClass<RenderPass, GuidedRayViz>();
-    registry.registerClass<RenderPass, GuidedRays>();
-}
 
 namespace
 {
-const char kShaderFile[] = "RenderPasses/FocalGuiding/FocalGuiding.rt.slang";
+const char kShaderFile[] = "RenderPasses/FocalGuiding/GuidedRays.rt.slang";
 
 // Ray tracing settings that affect the traversal stack size.
 // These should be set as small as possible.
@@ -40,8 +27,7 @@ const char kComputeDirect[] = "computeDirect";
 const char kUseImportanceSampling[] = "useImportanceSampling";
 } // namespace
 
-FocalGuiding::FocalGuiding(ref<Device> pDevice, const Properties& props)
-    : RenderPass(pDevice)
+GuidedRays::GuidedRays(ref<Device> pDevice, const Properties& props) : RenderPass(pDevice)
 {
     parseProperties(props);
 
@@ -50,7 +36,7 @@ FocalGuiding::FocalGuiding(ref<Device> pDevice, const Properties& props)
     FALCOR_ASSERT(mpSampleGenerator);
 }
 
-void FocalGuiding::parseProperties(const Properties& props)
+void GuidedRays::parseProperties(const Properties& props)
 {
     for (const auto& [key, value] : props)
     {
@@ -61,11 +47,11 @@ void FocalGuiding::parseProperties(const Properties& props)
         else if (key == kUseImportanceSampling)
             mUseImportanceSampling = value;
         else
-            logWarning("Unknown property '{}' in FocalGuiding properties.", key);
+            logWarning("Unknown property '{}' in GuidedRays properties.", key);
     }
 }
 
-Properties FocalGuiding::getProperties() const
+Properties GuidedRays::getProperties() const
 {
     Properties props;
     props[kMaxBounces] = mMaxBounces;
@@ -74,7 +60,7 @@ Properties FocalGuiding::getProperties() const
     return props;
 }
 
-RenderPassReflection FocalGuiding::reflect(const CompileData& compileData)
+RenderPassReflection GuidedRays::reflect(const CompileData& compileData)
 {
     RenderPassReflection reflector;
 
@@ -85,7 +71,7 @@ RenderPassReflection FocalGuiding::reflect(const CompileData& compileData)
     return reflector;
 }
 
-void FocalGuiding::execute(RenderContext* pRenderContext, const RenderData& renderData)
+void GuidedRays::execute(RenderContext* pRenderContext, const RenderData& renderData)
 {
     // Update refresh flag if options that affect the output have changed.
     Dictionary& dict = renderData.getDictionary();
@@ -193,7 +179,7 @@ void FocalGuiding::execute(RenderContext* pRenderContext, const RenderData& rend
     mFrameCount++;
 }
 
-void FocalGuiding::renderUI(Gui::Widgets& widget)
+void GuidedRays::renderUI(Gui::Widgets& widget)
 {
     bool dirty = false;
 
@@ -217,7 +203,7 @@ void FocalGuiding::renderUI(Gui::Widgets& widget)
     }
 }
 
-void FocalGuiding::setScene(RenderContext* pRenderContext, const ref<Scene>& pScene)
+void GuidedRays::setScene(RenderContext* pRenderContext, const ref<Scene>& pScene)
 {
     // Clear data for previous scene.
     // After changing scene, the raytracing program should to be recreated.
@@ -253,14 +239,16 @@ void FocalGuiding::setScene(RenderContext* pRenderContext, const ref<Scene>& pSc
         if (mpScene->hasGeometryType(Scene::GeometryType::TriangleMesh))
         {
             sbt->setHitGroup(
-                0, mpScene->getGeometryIDs(Scene::GeometryType::TriangleMesh),
+                0,
+                mpScene->getGeometryIDs(Scene::GeometryType::TriangleMesh),
                 desc.addHitGroup("scatterTriangleMeshClosestHit", "scatterTriangleMeshAnyHit")
             );
             sbt->setHitGroup(
                 1, mpScene->getGeometryIDs(Scene::GeometryType::TriangleMesh), desc.addHitGroup("", "shadowTriangleMeshAnyHit")
             );
             sbt->setHitGroup(
-                2, mpScene->getGeometryIDs(Scene::GeometryType::TriangleMesh),
+                2,
+                mpScene->getGeometryIDs(Scene::GeometryType::TriangleMesh),
                 desc.addHitGroup("spatialTriangleMeshClosestHit", "spatialTriangleMeshAnyHit")
             );
         }
@@ -270,7 +258,7 @@ void FocalGuiding::setScene(RenderContext* pRenderContext, const ref<Scene>& pSc
 
     DefineList defines;
     defines.add("DENSITY_NODES_BLOCK");
-    auto pPass = ComputePass::create(mpDevice, "RenderPasses\\FocalGuiding\\DensityNode.slang", "main", defines);
+    auto pPass = ComputePass::create(mpDevice, "RenderPasses\\GuidedRays\\DensityNode.slang", "main", defines);
     auto pReflector = pPass->getProgram()->getReflector()->getParameterBlock("gNodes");
     FALCOR_ASSERT(pReflector);
     // Bind resources to parameter block.
@@ -279,7 +267,7 @@ void FocalGuiding::setScene(RenderContext* pRenderContext, const ref<Scene>& pSc
     nodes_var["nodes"] = mNodes;
 }
 
-void FocalGuiding::prepareVars()
+void GuidedRays::prepareVars()
 {
     FALCOR_ASSERT(mpScene);
     FALCOR_ASSERT(mTracer.pProgram);
@@ -294,5 +282,4 @@ void FocalGuiding::prepareVars()
 
     auto var = mTracer.pVars->getRootVar();
     mpSampleGenerator->bindShaderData(var);
-
 }
