@@ -68,6 +68,12 @@ void GuidedRayViz::execute(RenderContext* pRenderContext, const RenderData& rend
 
     if (mpRayScene)
     {
+        //*mpRayScene->getCamera().get() = *mpScene->getCamera().get();
+        //mpRayScene->getCamera()->setName("test");
+
+        //mpRayScene->update(pRenderContext, renderData. ->getGlobalClock().now());
+        mpRayScene->update(pRenderContext, 0.0);
+        
         // render rays
         auto var = mpVars->getRootVar();
         var["PerFrameCB"]["gColor"] = float4(0, 1, 0, 1);
@@ -88,6 +94,16 @@ void GuidedRayViz::setScene(RenderContext* pRenderContext, const ref<Scene>& pSc
     if (mpScene)
         mpProgram->addDefines(mpScene->getSceneDefines());
     mpVars = ProgramVars::create(mpDevice, mpProgram->getReflector());
+}
+
+bool GuidedRayViz::onMouseEvent(const MouseEvent& mouseEvent)
+{
+    return mpRayScene ? mpRayScene->onMouseEvent(mouseEvent) : false;
+}
+
+bool GuidedRayViz::onKeyEvent(const KeyboardEvent& keyEvent)
+{
+    return mpRayScene ? mpRayScene->onKeyEvent(keyEvent) : false;
 }
 
 void GuidedRayViz::prepareVars()
@@ -116,9 +132,17 @@ void GuidedRayViz::generateRaysGeometry()
     auto meshId = sceneBuilder.addProcessedMesh(mesh);
     auto nodeId = sceneBuilder.addNode(SceneBuilder::Node());
     sceneBuilder.addMeshInstance(nodeId, meshId);
+    //ref<Camera> camera = Camera::create("lineSceneCam");
+    //sceneBuilder.addCamera(camera);
     //sceneBuilder.addCamera(mpScene->getCamera());
+    ref<Camera> camera = Camera::create("test");
+    *camera.get() = *mpScene->getCamera().get();
+    camera->setName("test");
+    sceneBuilder.addCamera(camera);
 
     mpRayScene = sceneBuilder.getScene();
+    mpRayScene->setCameraController(Scene::CameraControllerType::FirstPerson);
+    mpRayScene->setCameraControlsEnabled(true);
 }
 
 void GuidedRayViz::createLine(SceneBuilder::ProcessedMesh& mesh, GuidedRayLine rayLine, int& index)
@@ -135,11 +159,12 @@ void GuidedRayViz::createLine(SceneBuilder::ProcessedMesh& mesh, GuidedRayLine r
 void GuidedRayViz::createTube(SceneBuilder::ProcessedMesh& mesh, GuidedRayLine rayLine, int& index)
 {
     int numSegments = 6;
-    float lineWidth = 0.01f;
+    float lineWidth = 0.002f;
+    float lineLengthScale = 0.1f;
 
     float3 s = rayLine.pos1;
     float3 diff = rayLine.pos2 - rayLine.pos1;
-    float lineLenght = length(diff);
+    float lineLenght = length(diff) * lineLengthScale;
     float3 dir = normalize(diff);
     float3 uDir = getPerpendicualrTo(dir);
     float3 vDir = cross(dir, uDir);
