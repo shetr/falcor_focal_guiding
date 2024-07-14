@@ -1,6 +1,9 @@
 #pragma once
 #include "Falcor.h"
 #include "RenderGraph/RenderPass.h"
+#include "Scene/SceneBuilder.h"
+
+#include "GuidedRayLine.h"
 
 using namespace Falcor;
 
@@ -25,7 +28,13 @@ public:
 private:
     void prepareVars();
     void generateRaysGeometry();
-    void createLine(SceneBuilder::Mesh& mesh, GuidedRayLine rayLine);
+    void createLine(SceneBuilder::ProcessedMesh& mesh, GuidedRayLine rayLine, int& index);
+    void createQuad(
+        SceneBuilder::ProcessedMesh& mesh,
+        int& index,
+        float3 x11, float3 x12, float3 x21, float3 x22, float3 n11, float3 n12, float3 n21, float3 n22
+    );
+    float3 getPerpendicualrTo(float3 dir);
 
     uint mGuidedRaysSize = 10;
     ref<Buffer> mGuidedRays;
