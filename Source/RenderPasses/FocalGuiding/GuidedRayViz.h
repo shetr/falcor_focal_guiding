@@ -29,6 +29,7 @@ private:
     void prepareVars();
     void generateRaysGeometry();
     void createLine(SceneBuilder::ProcessedMesh& mesh, GuidedRayLine rayLine, int& index);
+    void createTube(SceneBuilder::ProcessedMesh& mesh, GuidedRayLine rayLine, int& index);
     void createQuad(
         SceneBuilder::ProcessedMesh& mesh,
         int& index,

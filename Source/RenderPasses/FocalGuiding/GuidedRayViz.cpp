@@ -2,6 +2,8 @@
 #include "RenderGraph/RenderPassHelpers.h"
 #include "RenderGraph/RenderPassStandardFlags.h"
 
+#include "Scene/Material/StandardMaterial.h"
+
 namespace
 {
 const char kShaderFile[] = "RenderPasses/FocalGuiding/GuidedRayViz.slang";
@@ -46,7 +48,7 @@ void GuidedRayViz::execute(RenderContext* pRenderContext, const RenderData& rend
     mGuidedRays = dict["gGuidedRays"];
     mComputeRays = dict["gComputeRays"];
     
-    if (mComputeRays && mGuidedRays)
+    if ((mComputeRays || !mpRayScene) && mGuidedRays)
     {
         generateRaysGeometry();
     }
@@ -58,15 +60,19 @@ void GuidedRayViz::execute(RenderContext* pRenderContext, const RenderData& rend
 
     if (mpScene)
     {
-        auto var = mpVars->getRootVar();
-        var["PerFrameCB"]["gColor"] = float4(0, 1, 0, 1);
-
-        mpScene->rasterize(pRenderContext, mpGraphicsState.get(), mpVars.get(), mpRasterState, mpRasterState);
+        //auto var = mpVars->getRootVar();
+        //var["PerFrameCB"]["gColor"] = float4(0, 1, 0, 1);
+        //
+        //mpScene->rasterize(pRenderContext, mpGraphicsState.get(), mpVars.get(), mpRasterState, mpRasterState);
     }
 
     if (mpRayScene)
     {
         // render rays
+        auto var = mpVars->getRootVar();
+        var["PerFrameCB"]["gColor"] = float4(0, 1, 0, 1);
+
+        mpRayScene->rasterize(pRenderContext, mpGraphicsState.get(), mpVars.get(), mpRasterState, mpRasterState);
     }
 }
 
@@ -86,20 +92,6 @@ void GuidedRayViz::setScene(RenderContext* pRenderContext, const ref<Scene>& pSc
 
 void GuidedRayViz::prepareVars()
 {
-    // mNodes =
-    //     mpDevice->createBuffer(mNodesSize * sizeof(DensityNode), bindFlags | ResourceBindFlags::Shared, memoryType, densityNodes.data());
-    // mpDevice->createBuffer()
-
-    //SceneBuilder builder();
-    //SceneBuilder pBuilder = SceneBuilder::create();
-    //
-    //SceneBuilder::Mesh mesh;
-    //// ... Fill out mesh struct ...
-    //size_t meshId = pBuilder->addMesh(mesh);
-    //size_t nodeId = pBuilder->addNode(Node(/* Instance matrix */));
-    //pBuilder->addMeshInstance(nodeId, meshId);
-    //
-    //Scene::SharedPtr pScene = pBuilder->getScene();
 }
 
 void GuidedRayViz::generateRaysGeometry()
@@ -108,25 +100,42 @@ void GuidedRayViz::generateRaysGeometry()
 
     SceneBuilder sceneBuilder = SceneBuilder(mpDevice, {});
     SceneBuilder::ProcessedMesh mesh;
+    //mesh.topology = Vao::Topology::LineList;
+    mesh.topology = Vao::Topology::TriangleList;
+    MaterialSystem matSystem = MaterialSystem(mpDevice);
+    mesh.pMaterial = StandardMaterial::create(mpDevice, "lines");
 
     int index = 0;
     for (uint i = 0; i < mGuidedRaysSize; ++i)
     {
         GuidedRayLine rayLine = rayNodes[i];
-        createLine(mesh, rayLine, index);
+        //createLine(mesh, rayLine, index);
+        createTube(mesh, rayLine, index);
     }
 
     auto meshId = sceneBuilder.addProcessedMesh(mesh);
     auto nodeId = sceneBuilder.addNode(SceneBuilder::Node());
     sceneBuilder.addMeshInstance(nodeId, meshId);
+    //sceneBuilder.addCamera(mpScene->getCamera());
 
     mpRayScene = sceneBuilder.getScene();
 }
 
 void GuidedRayViz::createLine(SceneBuilder::ProcessedMesh& mesh, GuidedRayLine rayLine, int& index)
 {
+    mesh.staticData.push_back({rayLine.pos1, float3(0.0f), float4(0.0f), float2(0.0f), 0.0f});
+    mesh.staticData.push_back({rayLine.pos2, float3(0.0f), float4(0.0f), float2(0.0f), 0.0f});
+    mesh.indexData.push_back(index + 0);
+    mesh.indexData.push_back(index + 1);
+
+    index += 2;
+    mesh.indexCount += 2;
+}
+
+void GuidedRayViz::createTube(SceneBuilder::ProcessedMesh& mesh, GuidedRayLine rayLine, int& index)
+{
     int numSegments = 6;
-    float lineWidth = 0.1f;
+    float lineWidth = 0.01f;
 
     float3 s = rayLine.pos1;
     float3 diff = rayLine.pos2 - rayLine.pos1;
