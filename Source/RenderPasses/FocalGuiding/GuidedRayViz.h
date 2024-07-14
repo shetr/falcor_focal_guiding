@@ -25,6 +25,7 @@ public:
 private:
     void prepareVars();
     void generateRaysGeometry();
+    void createLine(SceneBuilder::Mesh& mesh, GuidedRayLine rayLine);
 
     uint mGuidedRaysSize = 10;
     ref<Buffer> mGuidedRays;
@@ -32,6 +33,8 @@ private:
 
     // Internal state
     ref<Scene> mpScene;
+
+    ref<Scene> mpRayScene;
 
     ref<Program> mpProgram;
     ref<GraphicsState> mpGraphicsState;

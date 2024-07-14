@@ -1,6 +1,7 @@
 #include "GuidedRayViz.h"
 #include "RenderGraph/RenderPassHelpers.h"
 #include "RenderGraph/RenderPassStandardFlags.h"
+#include "Scene/SceneBuilder.h"
 
 #include "GuidedRayLine.h"
 
@@ -65,6 +66,11 @@ void GuidedRayViz::execute(RenderContext* pRenderContext, const RenderData& rend
 
         mpScene->rasterize(pRenderContext, mpGraphicsState.get(), mpVars.get(), mpRasterState, mpRasterState);
     }
+
+    if (mpRayScene)
+    {
+        // render rays
+    }
 }
 
 void GuidedRayViz::renderUI(Gui::Widgets& widget)
@@ -103,12 +109,23 @@ void GuidedRayViz::generateRaysGeometry()
 {
     std::vector<GuidedRayLine> rayNodes = mGuidedRays->getElements<GuidedRayLine>(0, mGuidedRaysSize);
 
+    SceneBuilder sceneBuilder = SceneBuilder(mpDevice, {});
+    SceneBuilder::Mesh mesh;
+
     for (uint i = 0; i < mGuidedRaysSize; ++i)
     {
-        printf("ray: %d\n", i);
         GuidedRayLine rayLine = rayNodes[i];
-        printf("pos1: %f, %f, %f\n", rayLine.pos1.x, rayLine.pos1.y, rayLine.pos1.z);
-        printf("pos2: %f, %f, %f\n", rayLine.pos2.x, rayLine.pos2.y, rayLine.pos2.z);
-        printf("color: %f, %f, %f\n", rayLine.color.x, rayLine.color.y, rayLine.color.z);
+        createLine(mesh, rayLine);
     }
+
+    auto meshId = sceneBuilder.addMesh(mesh);
+    auto nodeId = sceneBuilder.addNode(SceneBuilder::Node());
+    sceneBuilder.addMeshInstance(nodeId, meshId);
+
+    mpRayScene = sceneBuilder.getScene();
+}
+
+void GuidedRayViz::createLine(SceneBuilder::Mesh& mesh, GuidedRayLine rayLine)
+{
+    mesh.
 }
