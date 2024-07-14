@@ -10,12 +10,16 @@ import Utils.Geometry.IntersectionHelpers;
 import Rendering.Lights.LightHelpers;
 
 import DensityNode;
+import GuidedRayLine;
 
 ParameterBlock<DensityNodes> gNodes;
+RWStructuredBuffer<GuidedRayLine> gGuidedRayLines;
 
 cbuffer CB
 {
     uint gNodesSize;
+    float2 gGuidedRaysPos;
+    uint gGuidedRayLinesSize;
     float3 gSceneBoundsMin;
     float3 gSceneBoundsMax;
     uint gFrameCount;    // Frame count since scene was loaded.
@@ -537,6 +541,11 @@ void handleHit(const HitInfo hit, inout ScatterRayData rayData)
 */
 float3 tracePath(const uint2 pixel, const uint2 frameDim)
 {
+    uint2 centerPixel = uint2(gGuidedRaysPos * float2(frameDim));
+    if (pixel.x != centerPixel.x || pixel.y != centerPixel.y) {
+        return float3(0);
+    }
+
     float3 outColor = float3(0.f);
 
     const float3 primaryRayOrigin = gScene.camera.getPosition();
@@ -574,50 +583,37 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
             outColor += kUseAnalyticLights ? evalDirectAnalytic(sd, mi, sg) : float3(0.f);
         }
 
-        // spatial ray
-        //if (kComputeDirect && kMaxBounces > 0)
-        //{
-        //    SpatialRayData spatialRay = generateSpatialRay(sd, mi, rayOrigin, sg, 1);
-        //    traceSpatialRay(spatialRay);
-        //    bool v = traceShadowRay(rayOrigin, spatialRay.direction, length(spatialRay.hitPos - spatialRay.origin));
-        //    if (v) {
-        //        outColor += spatialRay.radiance;
-        //    }
-        //}
-
         // Prepare ray payload.
         ScatterRayData rayData = ScatterRayData(sg);
+        for (uint i = 0; i < gGuidedRayLinesSize; ++i)
+        {
+            if (sampleNext1D(rayData.sg) < gGuidedRayProb) {
+                // Generate scatter ray for the next path segment.
+                // The raygen shader will continue the path based on the returned payload.
+                generateGuidedRay(sd, mi, rayOrigin, rayData);
+                // generateSphericalRay(sd, mi, rayOrigin, rayData);
+            } else {
+                // Generate scatter ray.
+                if (!generateScatterRay(sd, mi, false, rayOrigin, rayData)) rayData.terminated = true;
+            }
+            gGuidedRayLines[i].pos1 = rayData.origin;
+            gGuidedRayLines[i].pos2 = rayData.origin + rayData.direction;
+            gGuidedRayLines[i].color = rayData.radiance;
 
-        if (sampleNext1D(rayData.sg) < gGuidedRayProb) {
-            // Generate scatter ray for the next path segment.
-            // The raygen shader will continue the path based on the returned payload.
-            generateGuidedRay(sd, mi, rayOrigin, rayData);
-            //generateSphericalRay(sd, mi, rayOrigin, rayData);
-        } else {
-            // Generate scatter ray.
-            if (!generateScatterRay(sd, mi, false, rayOrigin, rayData)) rayData.terminated = true;
+            rayData = ScatterRayData(rayData.sg);
         }
+
 
         // Follow path into the scene and compute its total contribution.
-        for (uint depth = 0; depth <= kMaxBounces && !rayData.terminated; depth++)
-        {
-            // Trace scatter ray. If it hits geometry, the closest hit shader samples
-            // direct illumination and generates the next scatter ray.
-            traceScatterRay(rayData);
-        }
-
-        // Store contribution from scatter ray.
-        outColor += rayData.radiance;
-        // test random gen
-        // outColor = float3(sampleNext1D(sg), sampleNext1D(sg), sampleNext1D(sg));
-    }
-    else
-    {
-        // Background pixel.
-        outColor = kUseEnvBackground ? gScene.envMap.eval(primaryRayDir) : kDefaultBackgroundColor;
+        //for (uint depth = 0; depth <= kMaxBounces && !rayData.terminated; depth++)
+        //{
+        //    // Trace scatter ray. If it hits geometry, the closest hit shader samples
+        //    // direct illumination and generates the next scatter ray.
+        //    traceScatterRay(rayData);
+        //}
     }
 
-    return outColor;
+    return float3(1);
 }
 
 //

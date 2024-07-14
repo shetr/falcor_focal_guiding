@@ -27,12 +27,20 @@ public:
 private:
     void parseProperties(const Properties& props);
     void prepareVars();
+    void printRays();
 
     // Internal state
     ref<Scene> mpScene; ///< Current scene.
     ref<SampleGenerator> mpSampleGenerator; ///< GPU sample generator.
     ref<Buffer> mNodes;
     ref<ParameterBlock> mpNodesBlock;
+
+    
+    float2 mGuidedRaysPos = float2(0.5);
+
+    uint mGuidedRaysSize = 10;
+    ref<Buffer> mGuidedRays;
+    bool mComputeRays = true;
 
     uint mNodesSize = 1;
     uint mMaxOctreeDepth = 3;

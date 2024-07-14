@@ -75,4 +75,15 @@ void GuidedRayViz::prepareVars()
     // mNodes =
     //     mpDevice->createBuffer(mNodesSize * sizeof(DensityNode), bindFlags | ResourceBindFlags::Shared, memoryType, densityNodes.data());
     // mpDevice->createBuffer()
+
+    //SceneBuilder builder();
+    //SceneBuilder pBuilder = SceneBuilder::create();
+    //
+    //SceneBuilder::Mesh mesh;
+    //// ... Fill out mesh struct ...
+    //size_t meshId = pBuilder->addMesh(mesh);
+    //size_t nodeId = pBuilder->addNode(Node(/* Instance matrix */));
+    //pBuilder->addMeshInstance(nodeId, meshId);
+    //
+    //Scene::SharedPtr pScene = pBuilder->getScene();
 }

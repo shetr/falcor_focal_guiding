@@ -29,7 +29,7 @@ private:
     uint mNodesSize = 1;
     uint mMaxOctreeDepth = 3;
 
-    ref<Buffer> mLines;
+    ref<Buffer> mGuidedRays;
 
     // Internal state
     ref<Scene> mpScene;

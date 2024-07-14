@@ -18,6 +18,8 @@ target_sources(FocalGuiding PRIVATE
     GuidedRays.h
     GuidedRays.cpp
     GuidedRays.rt.slang
+    GuidedRayLine.h
+    GuidedRayLine.slang
 )
 
 target_copy_shaders(FocalGuiding RenderPasses/FocalGuiding)

@@ -2,6 +2,8 @@
 #include "RenderGraph/RenderPassHelpers.h"
 #include "RenderGraph/RenderPassStandardFlags.h"
 
+#include "GuidedRayLine.h"
+
 namespace
 {
 const char kShaderFile[] = "RenderPasses/FocalGuiding/GuidedRays.rt.slang";
@@ -142,6 +144,8 @@ void GuidedRays::execute(RenderContext* pRenderContext, const RenderData& render
     // Set constants.
     auto var = mTracer.pVars->getRootVar();
     var["CB"]["gNodesSize"] = mNodesSize;
+    var["CB"]["gGuidedRaysPos"] = mGuidedRaysPos;
+    var["CB"]["gGuidedRayLinesSize"] = mGuidedRaysSize;
     var["CB"]["gSceneBoundsMin"] = mpScene->getSceneBounds().minPoint;
     var["CB"]["gSceneBoundsMax"] = mpScene->getSceneBounds().maxPoint;
     var["CB"]["gFrameCount"] = mFrameCount;
@@ -168,13 +172,18 @@ void GuidedRays::execute(RenderContext* pRenderContext, const RenderData& render
     nodes_var["nodes"] = mNodes;
 
     var["gNodes"] = mpNodesBlock;
+    var["gGuidedRayLines"] = mGuidedRays;
 
     // Get dimensions of ray dispatch.
     const uint2 targetDim = renderData.getDefaultTextureDims();
     FALCOR_ASSERT(targetDim.x > 0 && targetDim.y > 0);
 
-    // Spawn the rays.
-    mpScene->raytrace(pRenderContext, mTracer.pProgram.get(), mTracer.pVars, uint3(targetDim, 1));
+    if (mComputeRays)
+    {
+        // Spawn the rays.
+        mpScene->raytrace(pRenderContext, mTracer.pProgram.get(), mTracer.pVars, uint3(targetDim, 1));
+        mComputeRays = false;
+    }
 
     mFrameCount++;
 }
@@ -182,6 +191,26 @@ void GuidedRays::execute(RenderContext* pRenderContext, const RenderData& render
 void GuidedRays::renderUI(Gui::Widgets& widget)
 {
     bool dirty = false;
+
+    bool raysPosChanged = false;
+    raysPosChanged |= widget.slider("rays pos X", mGuidedRaysPos.x, 0.0f, 1.0f);
+    raysPosChanged |= widget.slider("rays pos Y", mGuidedRaysPos.y, 0.0f, 1.0f);
+    if (raysPosChanged)
+    {
+        mComputeRays = true;
+    }
+
+    bool shouldPrintRays = widget.button("print rays");
+    if (shouldPrintRays)
+    {
+        printRays();
+    }
+
+    bool shouldRecomputeRays = widget.button("recompute rays");
+    if (shouldRecomputeRays)
+    {
+        mComputeRays = true;
+    }
 
     dirty |= widget.slider("Max bounces", mMaxBounces, 0u, 5u);
     widget.tooltip("Maximum path length for indirect illumination.\n0 = direct only\n1 = one indirect bounce etc.", true);
@@ -258,7 +287,7 @@ void GuidedRays::setScene(RenderContext* pRenderContext, const ref<Scene>& pScen
 
     DefineList defines;
     defines.add("DENSITY_NODES_BLOCK");
-    auto pPass = ComputePass::create(mpDevice, "RenderPasses\\GuidedRays\\DensityNode.slang", "main", defines);
+    auto pPass = ComputePass::create(mpDevice, "RenderPasses\\FocalGuiding\\DensityNode.slang", "main", defines);
     auto pReflector = pPass->getProgram()->getReflector()->getParameterBlock("gNodes");
     FALCOR_ASSERT(pReflector);
     // Bind resources to parameter block.
@@ -282,4 +311,22 @@ void GuidedRays::prepareVars()
 
     auto var = mTracer.pVars->getRootVar();
     mpSampleGenerator->bindShaderData(var);
+
+    ResourceBindFlags bindFlags = ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess;
+    MemoryType memoryType = MemoryType::DeviceLocal;
+    mGuidedRays = mpDevice->createBuffer(mGuidedRaysSize * sizeof(GuidedRayLine), bindFlags | ResourceBindFlags::Shared, memoryType);
+}
+
+void GuidedRays::printRays()
+{
+    std::vector<GuidedRayLine> rayNodes = mGuidedRays->getElements<GuidedRayLine>(0, mGuidedRaysSize);
+
+    for (uint i = 0; i < mGuidedRaysSize; ++i)
+    {
+        printf("ray: %d\n", i);
+        GuidedRayLine rayLine = rayNodes[i];
+        printf("pos1: %f, %f, %f\n", rayLine.pos1.x, rayLine.pos1.y, rayLine.pos1.z);
+        printf("pos2: %f, %f, %f\n", rayLine.pos2.x, rayLine.pos2.y, rayLine.pos2.z);
+        printf("color: %f, %f, %f\n", rayLine.color.x, rayLine.color.y, rayLine.color.z);
+    }
 }
