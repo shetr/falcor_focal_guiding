@@ -127,6 +127,9 @@ void GuidedRays::execute(RenderContext* pRenderContext, const RenderData& render
     mNodes = dict["gNodes"];
     mNodesSize = dict["gNodesSize"];
     mMaxOctreeDepth = dict["gMaxOctreeDepth"];
+    dict["gGuidedRaysSize"] = mGuidedRaysSize;
+    dict["gGuidedRays"] = mGuidedRays;
+    dict["gComputeRays"] = mComputeRays;
 
     mTracer.pProgram->addDefine("MAX_OCTREE_DEPTH", std::to_string(mMaxOctreeDepth));
 

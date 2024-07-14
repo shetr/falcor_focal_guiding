@@ -24,12 +24,11 @@ public:
 
 private:
     void prepareVars();
+    void generateRaysGeometry();
 
-    ref<Buffer> mNodes;
-    uint mNodesSize = 1;
-    uint mMaxOctreeDepth = 3;
-
+    uint mGuidedRaysSize = 10;
     ref<Buffer> mGuidedRays;
+    bool mComputeRays = true;
 
     // Internal state
     ref<Scene> mpScene;

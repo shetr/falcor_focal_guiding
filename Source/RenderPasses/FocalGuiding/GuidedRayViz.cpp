@@ -2,6 +2,8 @@
 #include "RenderGraph/RenderPassHelpers.h"
 #include "RenderGraph/RenderPassStandardFlags.h"
 
+#include "GuidedRayLine.h"
+
 namespace
 {
 const char kShaderFile[] = "RenderPasses/FocalGuiding/GuidedRayViz.slang";
@@ -29,18 +31,27 @@ Properties GuidedRayViz::getProperties() const
 RenderPassReflection GuidedRayViz::reflect(const CompileData& compileData)
 {
     RenderPassReflection reflector;
-    reflector.addOutput("output", "Lines");
+    //reflector.addInput("input", "lines color");
+    reflector.addOutput("output", "linesColor");
     return reflector;
 }
 
 void GuidedRayViz::execute(RenderContext* pRenderContext, const RenderData& renderData)
 {
+    if (!mpScene)
+    {
+        return;
+    }
 
-    //Dictionary& dict = renderData.getDictionary();
-    //mNodes = dict["gNodes"];
-    //mNodesSize = dict["gNodesSize"];
-    //mMaxOctreeDepth = dict["gMaxOctreeDepth"];
-
+    Dictionary& dict = renderData.getDictionary();
+    mGuidedRaysSize = dict["gGuidedRaysSize"];
+    mGuidedRays = dict["gGuidedRays"];
+    mComputeRays = dict["gComputeRays"];
+    
+    if (mComputeRays && mGuidedRays)
+    {
+        generateRaysGeometry();
+    }
 
     auto pTargetFbo = Fbo::create(mpDevice, {renderData.getTexture("output")});
     const float4 clearColor(0, 0, 0, 1);
@@ -86,4 +97,18 @@ void GuidedRayViz::prepareVars()
     //pBuilder->addMeshInstance(nodeId, meshId);
     //
     //Scene::SharedPtr pScene = pBuilder->getScene();
+}
+
+void GuidedRayViz::generateRaysGeometry()
+{
+    std::vector<GuidedRayLine> rayNodes = mGuidedRays->getElements<GuidedRayLine>(0, mGuidedRaysSize);
+
+    for (uint i = 0; i < mGuidedRaysSize; ++i)
+    {
+        printf("ray: %d\n", i);
+        GuidedRayLine rayLine = rayNodes[i];
+        printf("pos1: %f, %f, %f\n", rayLine.pos1.x, rayLine.pos1.y, rayLine.pos1.z);
+        printf("pos2: %f, %f, %f\n", rayLine.pos2.x, rayLine.pos2.y, rayLine.pos2.z);
+        printf("color: %f, %f, %f\n", rayLine.color.x, rayLine.color.y, rayLine.color.z);
+    }
 }
