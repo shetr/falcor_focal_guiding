@@ -278,9 +278,10 @@ float getDirectionPdf(float3 origin, float3 dir)
                 float density = parentDensity * child.density;
                 if (child.isLeaf() || nodesStackSize >= MAX_OCTREE_DEPTH) {
                     // pdf += (pow(nearFar.y, 3) - pow(nearFar.x, 3)) * density / 3;
-                    // pdf += (pow(nearFar.y, 3) - pow(nearFar.x, 3)) * density / (3 * childBox.volume());
+                    pdf += (pow(nearFar.y, 3) - pow(nearFar.x, 3)) * density / (3 * childBox.volume());
+                    // pdf += (pow(nearFar.y, 3) - pow(nearFar.x, 3)) * density / (3 * box.volume());
                     // pdf += (nearFar.y - nearFar.x) * density;
-                    pdf += (nearFar.y - nearFar.x) * density / childBox.volume();
+                    // pdf += (nearFar.y - nearFar.x) * density / childBox.volume();
                 } else {
                     box = childBox;
                     // push node

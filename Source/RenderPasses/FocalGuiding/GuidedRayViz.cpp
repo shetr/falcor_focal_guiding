@@ -168,7 +168,7 @@ void GuidedRayViz::createTube(SceneBuilder::ProcessedMesh& mesh, GuidedRayLine r
 {
     int numSegments = 6;
     float lineWidth = 0.002f;
-    float lineLengthScale = 0.1f;
+    float lineLengthScale = 0.5f;
 
     float3 s = rayLine.pos1;
     float3 diff = rayLine.pos2 - rayLine.pos1;
