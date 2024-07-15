@@ -46,12 +46,11 @@ void GuidedRayViz::execute(RenderContext* pRenderContext, const RenderData& rend
     Dictionary& dict = renderData.getDictionary();
     mGuidedRaysSize = dict["gGuidedRaysSize"];
     mGuidedRays = dict["gGuidedRays"];
-    mComputeRays = dict["gComputeRays"];
+    dict["gComputeRays"] = mComputeRays;
     
-    if ((mComputeRays || !mpRayScene) && mGuidedRays)
-    {
-        generateRaysGeometry();
-    }
+    //if ((mComputeRays || !mpRayScene) && mGuidedRays)
+    //{
+    //}
 
     auto pTargetFbo = Fbo::create(mpDevice, {renderData.getTexture("output")});
     const float4 clearColor(0, 0, 0, 1);
@@ -84,7 +83,15 @@ void GuidedRayViz::execute(RenderContext* pRenderContext, const RenderData& rend
 
 void GuidedRayViz::renderUI(Gui::Widgets& widget)
 {
-    
+    bool shouldRecomputeRays = widget.button("recompute rays");
+    if (shouldRecomputeRays)
+    {
+        mComputeRays = true;
+        if (mGuidedRays)
+        {
+            generateRaysGeometry();
+        }
+    }
 }
 
 void GuidedRayViz::setScene(RenderContext* pRenderContext, const ref<Scene>& pScene)
@@ -140,7 +147,8 @@ void GuidedRayViz::generateRaysGeometry()
     camera->setName("test");
     sceneBuilder.addCamera(camera);
 
-    mpRayScene = sceneBuilder.getScene();
+    ref<Scene> newScene = sceneBuilder.getScene();
+    mpRayScene.swap(newScene);
     mpRayScene->setCameraController(Scene::CameraControllerType::FirstPerson);
     mpRayScene->setCameraControlsEnabled(true);
 }

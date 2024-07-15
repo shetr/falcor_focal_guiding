@@ -38,6 +38,7 @@ private:
     
     float2 mGuidedRaysPos = float2(0.5);
 
+    uint mMaxGuidedRaysSize = 1000;
     uint mGuidedRaysSize = 10;
     ref<Buffer> mGuidedRays;
     bool mComputeRays = true;

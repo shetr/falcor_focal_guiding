@@ -587,17 +587,21 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
         ScatterRayData rayData = ScatterRayData(sg);
         for (uint i = 0; i < gGuidedRayLinesSize; ++i)
         {
+            float prob = 1.0;
             if (sampleNext1D(rayData.sg) < gGuidedRayProb) {
                 // Generate scatter ray for the next path segment.
                 // The raygen shader will continue the path based on the returned payload.
                 generateGuidedRay(sd, mi, rayOrigin, rayData);
+                prob = getDirectionPdf(rayData.origin, rayData.direction);
                 // generateSphericalRay(sd, mi, rayOrigin, rayData);
             } else {
                 // Generate scatter ray.
-                if (!generateScatterRay(sd, mi, false, rayOrigin, rayData)) rayData.terminated = true;
+                if (generateScatterRay(sd, mi, false, rayOrigin, rayData)) {
+                    prob = mi.evalPdf(sd, rayData.direction, kUseImportanceSampling);
+                }
             }
             gGuidedRayLines[i].pos1 = rayData.origin;
-            gGuidedRayLines[i].pos2 = rayData.origin + rayData.direction;
+            gGuidedRayLines[i].pos2 = rayData.origin + rayData.direction * prob;
             gGuidedRayLines[i].color = rayData.radiance;
 
             rayData = ScatterRayData(rayData.sg);

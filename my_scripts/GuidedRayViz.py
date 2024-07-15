@@ -26,7 +26,7 @@ def render_graph_GuidedRayViz():
     g.addPass(VBufferViz, "VBufferViz")
     GuidedRays = createPass("GuidedRays", {'maxBounces': 3, 'computeDirect': True})
     g.addPass(GuidedRays, "GuidedRays")
-    g.addEdge("FocalDensities", "GuidedRays")
+    g.addEdge("FocalGuiding", "GuidedRays")
     g.addEdge("VBufferViz.vbuffer", "GuidedRays.vbuffer")
     g.addEdge("VBufferViz.viewW", "GuidedRays.viewW")
     g.addEdge("GuidedRays", "GuidedRayViz")

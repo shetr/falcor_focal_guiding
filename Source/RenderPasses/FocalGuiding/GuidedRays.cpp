@@ -127,9 +127,19 @@ void GuidedRays::execute(RenderContext* pRenderContext, const RenderData& render
     mNodes = dict["gNodes"];
     mNodesSize = dict["gNodesSize"];
     mMaxOctreeDepth = dict["gMaxOctreeDepth"];
+
+    mMaxBounces = dict["gMaxBounces"];
+    mGuidedRayProb = dict["gGuidedRayProb"];
+    mComputeDirect = dict["gComputeDirect"];
+    mUseImportanceSampling = dict["gUseImportanceSampling"];
+
     dict["gGuidedRaysSize"] = mGuidedRaysSize;
     dict["gGuidedRays"] = mGuidedRays;
-    dict["gComputeRays"] = mComputeRays;
+
+    if (dict.keyExists("gComputeRays"))
+    {
+        mComputeRays = dict["gComputeRays"];
+    }
 
     mTracer.pProgram->addDefine("MAX_OCTREE_DEPTH", std::to_string(mMaxOctreeDepth));
 
@@ -186,6 +196,7 @@ void GuidedRays::execute(RenderContext* pRenderContext, const RenderData& render
         // Spawn the rays.
         mpScene->raytrace(pRenderContext, mTracer.pProgram.get(), mTracer.pVars, uint3(targetDim, 1));
         mComputeRays = false;
+        dict["gComputeRays"] = mComputeRays;
     }
 
     mFrameCount++;
@@ -195,12 +206,13 @@ void GuidedRays::renderUI(Gui::Widgets& widget)
 {
     bool dirty = false;
 
-    bool raysPosChanged = false;
-    raysPosChanged |= widget.slider("rays pos X", mGuidedRaysPos.x, 0.0f, 1.0f);
-    raysPosChanged |= widget.slider("rays pos Y", mGuidedRaysPos.y, 0.0f, 1.0f);
-    if (raysPosChanged)
+    bool raysStateChanged = false;
+    raysStateChanged |= widget.slider("rays pos X", mGuidedRaysPos.x, 0.0f, 1.0f);
+    raysStateChanged |= widget.slider("rays pos Y", mGuidedRaysPos.y, 0.0f, 1.0f);
+    raysStateChanged |= widget.slider("rays count", mGuidedRaysSize, 1u, mMaxGuidedRaysSize);
+    if (raysStateChanged)
     {
-        mComputeRays = true;
+        //mComputeRays = true;
     }
 
     bool shouldPrintRays = widget.button("print rays");
@@ -208,24 +220,6 @@ void GuidedRays::renderUI(Gui::Widgets& widget)
     {
         printRays();
     }
-
-    bool shouldRecomputeRays = widget.button("recompute rays");
-    if (shouldRecomputeRays)
-    {
-        mComputeRays = true;
-    }
-
-    dirty |= widget.slider("Max bounces", mMaxBounces, 0u, 5u);
-    widget.tooltip("Maximum path length for indirect illumination.\n0 = direct only\n1 = one indirect bounce etc.", true);
-
-    dirty |= widget.slider("Guided ray prob", mGuidedRayProb, 0.0f, 1.0f);
-    widget.tooltip("Probability of selecting guided ray over scattered ray in one step of the path", true);
-
-    dirty |= widget.checkbox("Evaluate direct illumination", mComputeDirect);
-    widget.tooltip("Compute direct illumination.\nIf disabled only indirect is computed (when max bounces > 0).", true);
-
-    dirty |= widget.checkbox("Use importance sampling", mUseImportanceSampling);
-    widget.tooltip("Use importance sampling for materials", true);
 
     // If rendering options that modify the output have changed, set flag to indicate that.
     // In execute() we will pass the flag to other passes for reset of temporal data etc.
@@ -317,7 +311,7 @@ void GuidedRays::prepareVars()
 
     ResourceBindFlags bindFlags = ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess;
     MemoryType memoryType = MemoryType::DeviceLocal;
-    mGuidedRays = mpDevice->createBuffer(mGuidedRaysSize * sizeof(GuidedRayLine), bindFlags | ResourceBindFlags::Shared, memoryType);
+    mGuidedRays = mpDevice->createBuffer(mMaxGuidedRaysSize * sizeof(GuidedRayLine), bindFlags | ResourceBindFlags::Shared, memoryType);
 }
 
 void GuidedRays::printRays()

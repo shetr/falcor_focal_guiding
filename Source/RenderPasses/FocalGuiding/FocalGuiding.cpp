@@ -139,6 +139,10 @@ void FocalGuiding::execute(RenderContext* pRenderContext, const RenderData& rend
     mNodes = dict["gNodes"];
     mNodesSize = dict["gNodesSize"];
     mMaxOctreeDepth = dict["gMaxOctreeDepth"];
+    dict["gMaxBounces"] = mMaxBounces;
+    dict["gGuidedRayProb"] = mGuidedRayProb;
+    dict["gComputeDirect"] = mComputeDirect;
+    dict["gUseImportanceSampling"] = mUseImportanceSampling;
 
     mTracer.pProgram->addDefine("MAX_OCTREE_DEPTH", std::to_string(mMaxOctreeDepth));
 
