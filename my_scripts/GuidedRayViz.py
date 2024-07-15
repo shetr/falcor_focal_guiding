@@ -39,8 +39,16 @@ def render_graph_GuidedRayViz():
     g.addEdge("ToneMapper.dst", "Composite.A")
     g.addEdge("GuidedRayViz.output", "Composite.B")
 
+    # focal viz
+    FocalViz = createPass("FocalViz", {})
+    g.addPass(FocalViz, "FocalViz")
+    g.addEdge("FocalDensities", "FocalViz")
+    g.addEdge("VBufferRT.vbuffer", "FocalViz.vbuffer")
+    g.addEdge("VBufferRT.viewW", "FocalViz.viewW")
+
     # outputs
     g.markOutput("Composite.out")
+    g.markOutput("FocalViz.color")
     g.markOutput("ToneMapper.dst")
     g.markOutput("GuidedRays.color")
     g.markOutput("GuidedRayViz.output")

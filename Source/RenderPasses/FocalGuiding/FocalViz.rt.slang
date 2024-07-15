@@ -133,7 +133,7 @@ bool traceShadowRay(float3 origin, float3 dir, float distance)
     return rayData.visible;
 }
 
-#define SHOW_NORMALS
+//#define SHOW_NORMALS
 
 float3 tracePath(const uint2 pixel, const uint2 frameDim)
 {
