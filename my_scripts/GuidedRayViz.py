@@ -33,7 +33,14 @@ def render_graph_GuidedRayViz():
     #g.addEdge("VBufferViz.vbuffer", "GuidedRayViz.vbuffer")
     #g.addEdge("VBufferViz.viewW", "GuidedRayViz.viewW")
 
+    #composite
+    Composite = createPass("Composite", {})
+    g.addPass(Composite, "Composite")
+    g.addEdge("ToneMapper.dst", "Composite.A")
+    g.addEdge("GuidedRayViz.output", "Composite.B")
+
     # outputs
+    g.markOutput("Composite.out")
     g.markOutput("ToneMapper.dst")
     g.markOutput("GuidedRays.color")
     g.markOutput("GuidedRayViz.output")
