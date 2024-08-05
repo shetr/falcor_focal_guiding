@@ -349,6 +349,13 @@ float3 evalDirectAnalytic(const ShadingData sd, const IMaterialInstance mi, inou
     return mi.eval(sd, ls.dir, sg) * ls.Li * invPdf;
 }
 
+float getMisWeight(const ShadingData sd, const IMaterialInstance mi, float3 origin, float3 dir)
+{
+    float guidedPdf = getDirectionPdf(origin, dir);
+    float bsdfPdf = mi.evalPdf(sd, dir, kUseImportanceSampling);
+    return 1 / (gGuidedRayProb * guidedPdf + (1 - gGuidedRayProb) * bsdfPdf);
+}
+
 void generateGuidedRay(const ShadingData sd, const IMaterialInstance mi, float3 rayOrigin, inout ScatterRayData rayData)
 {
     float3 dir = sampleDirectionByDensities(rayOrigin, rayData.sg);
@@ -362,14 +369,14 @@ void generateGuidedRay(const ShadingData sd, const IMaterialInstance mi, float3 
 
     rayOrigin = computeRayOrigin(sd.posW, dot(sd.faceN, dir) >= 0.f ? sd.faceN : -sd.faceN);
 
-    float pdf = getDirectionPdf(rayOrigin, dir);
-    // maybe MIS in the future
-    // pdf += mi.evalPdf(sd, dir, true);
-    float invPdf = 1 / pdf;
+    // float pdf = getDirectionPdf(rayOrigin, dir);
+    // float invPdf = 1 / pdf;
+    float misWeight = getMisWeight(sd, mi, rayOrigin, dir);
 
     rayData.origin = rayOrigin;
     rayData.direction = dir;
-    rayData.thp *= mi.eval(sd, dir, rayData.sg) * invPdf;
+    // rayData.thp *= mi.eval(sd, dir, rayData.sg) * invPdf;
+    rayData.thp *= mi.eval(sd, dir, rayData.sg) * misWeight;
 }
 
 /** Generate a new scatter ray or terminate.
@@ -392,11 +399,9 @@ bool generateScatterRay(const ShadingData sd, const IMaterialInstance mi, bool i
             rayData.origin = sd.computeRayOrigin(false);
         }
         rayData.direction = bsdfSample.wo;
-        //float pdf = mi.evalPdf(sd, rayData.direction, kUseImportanceSampling);
-        //float spatialPdf = getDirectionPdf(rayData.origin, rayData.direction);
-        //float weight = pdf / (spatialPdf + pdf);
-        //rayData.thp *= bsdfSample.weight * weight;
-        rayData.thp *= bsdfSample.weight;
+        // rayData.thp *= bsdfSample.weight;
+        float misWeight = getMisWeight(sd, mi, rayOrigin, rayData.direction);
+        rayData.thp *= mi.eval(sd, rayData.direction, rayData.sg) * misWeight;
         return any(rayData.thp > 0.f);
     }
 

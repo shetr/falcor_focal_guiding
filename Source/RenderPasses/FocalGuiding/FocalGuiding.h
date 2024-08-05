@@ -44,7 +44,7 @@ private:
 
     // Runtime data
     uint mFrameCount = 0; ///< Frame count since scene was loaded.
-    float mGuidedRayProb = 1.0f;
+    float mGuidedRayProb = 0.5f;
     bool mOptionsChanged = false;
 
     // Ray tracing program.
