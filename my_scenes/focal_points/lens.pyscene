@@ -30,8 +30,8 @@ rightWall.roughness = 0.5
 
 lens = StandardMaterial('Lens')
 lens.baseColor = float4(0.725, 0.71, 0.68, 1.0)
-lens.roughness = 0
-lens.diffuseTransmission = 0.0
+lens.roughness = 0.1
+lens.diffuseTransmission = 0.01
 lens.specularTransmission = 0.95
 lens.transmissionColor = float3(0.725, 0.71, 0.68)
 
