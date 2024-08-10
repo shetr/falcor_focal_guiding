@@ -413,17 +413,21 @@ bool generateScatterRay(const ShadingData sd, const IMaterialInstance mi, bool i
     return false;
 }
 
-float3 sampleSpherical(out float pdf, inout SampleGenerator sg)
+float3 sampleSpherical(float3 normal, float3 tangent, out bool isOut, out float pdf, inout SampleGenerator sg)
 {
+    float3 X = tangent;
+    float3 Y = cross(normal, tangent);
+    float3 Z = normal;
     float phi = sampleNext1D(sg) * 2 * M_PI;
     float theta = sampleNext1D(sg) * M_PI;
+    isOut = theta <= M_PI * 0.5;
     float sinTheta = sin(theta);
     pdf = getSphericalPdfSinTheta(sinTheta);
-    return float3(
-        cos(phi) * sinTheta,
-        sin(phi) * sinTheta,
-        cos(theta)
-    );
+    return
+        X * cos(phi) * sinTheta +
+        Y * sin(phi) * sinTheta +
+        Z * cos(theta)
+    ;
 }
 
 float getSphericalPdfSinTheta(float sinTheta)
@@ -440,8 +444,11 @@ float getSphericalPdf(float3 dir)
 void generateSphericalRay(const ShadingData sd, const IMaterialInstance mi, float3 rayOrigin, inout ScatterRayData rayData)
 {
     float pdf;
-    float3 dir = sampleSpherical(pdf, rayData.sg);
+    bool isOut;
+    float3 dir = sampleSpherical(sd.faceN, normalize(sd.tangentW.xyz), isOut, pdf, rayData.sg);
     float invPdf = 1 / pdf;
+
+    rayOrigin = computeRayOrigin(sd.posW, isOut ? sd.faceN : -sd.faceN);
 
     rayData.origin = rayOrigin;
     rayData.direction = dir;
@@ -517,8 +524,8 @@ void handleHit(const HitInfo hit, inout ScatterRayData rayData)
     if (sampleNext1D(rayData.sg) < gGuidedRayProb) {
         // Generate scatter ray for the next path segment.
         // The raygen shader will continue the path based on the returned payload.
-        generateGuidedRay(sd, mi, rayOrigin, rayData);
-        //generateSphericalRay(sd, mi, rayOrigin, rayData);
+        //generateGuidedRay(sd, mi, rayOrigin, rayData);
+        generateSphericalRay(sd, mi, rayOrigin, rayData);
     } else {
         // Generate scatter ray for the next path segment.
         // The raygen shader will continue the path based on the returned payload.
@@ -602,8 +609,8 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
         if (sampleNext1D(rayData.sg) < gGuidedRayProb) {
             // Generate scatter ray for the next path segment.
             // The raygen shader will continue the path based on the returned payload.
-            generateGuidedRay(sd, mi, rayOrigin, rayData);
-            //generateSphericalRay(sd, mi, rayOrigin, rayData);
+            //generateGuidedRay(sd, mi, rayOrigin, rayData);
+            generateSphericalRay(sd, mi, rayOrigin, rayData);
         } else {
             // Generate scatter ray.
             if (!generateScatterRay(sd, mi, false, rayOrigin, rayData)) rayData.terminated = true;
