@@ -367,11 +367,11 @@ void generateGuidedRay(const ShadingData sd, const IMaterialInstance mi, float3 
     // if ((NdotL <= kMinCosTheta && !hasTransmission) || (NdotL >= -kMinCosTheta && !hasReflection))
     //     return false;
 
-    // rayOrigin = computeRayOrigin(sd.posW, dot(sd.faceN, dir) >= 0.f ? sd.faceN : -sd.faceN);
+    rayOrigin = computeRayOrigin(sd.posW, dot(sd.faceN, dir) >= 0.f ? sd.faceN : -sd.faceN);
     // rayOrigin = sd.computeRayOrigin(dot(dir, sd.faceN) >= 0.f);
-    if ((sd.frontFacing && dot(dir, sd.faceN) <= 0.f) || (!sd.frontFacing && dot(dir, sd.faceN) <= 0.f)) {
-        rayOrigin = sd.computeRayOrigin(false);
-    }
+    //if ((sd.frontFacing && dot(dir, sd.faceN) <= 0.f) || (!sd.frontFacing && dot(dir, sd.faceN) <= 0.f)) {
+    //    rayOrigin = sd.computeRayOrigin(false);
+    //}
 
     rayData.origin = rayOrigin;
     rayData.direction = dir;
@@ -524,8 +524,8 @@ void handleHit(const HitInfo hit, inout ScatterRayData rayData)
     if (sampleNext1D(rayData.sg) < gGuidedRayProb) {
         // Generate scatter ray for the next path segment.
         // The raygen shader will continue the path based on the returned payload.
-        //generateGuidedRay(sd, mi, rayOrigin, rayData);
-        generateSphericalRay(sd, mi, rayOrigin, rayData);
+        generateGuidedRay(sd, mi, rayOrigin, rayData);
+        //generateSphericalRay(sd, mi, rayOrigin, rayData);
     } else {
         // Generate scatter ray for the next path segment.
         // The raygen shader will continue the path based on the returned payload.
@@ -609,8 +609,8 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
         if (sampleNext1D(rayData.sg) < gGuidedRayProb) {
             // Generate scatter ray for the next path segment.
             // The raygen shader will continue the path based on the returned payload.
-            //generateGuidedRay(sd, mi, rayOrigin, rayData);
-            generateSphericalRay(sd, mi, rayOrigin, rayData);
+            generateGuidedRay(sd, mi, rayOrigin, rayData);
+            //generateSphericalRay(sd, mi, rayOrigin, rayData);
         } else {
             // Generate scatter ray.
             if (!generateScatterRay(sd, mi, false, rayOrigin, rayData)) rayData.terminated = true;
