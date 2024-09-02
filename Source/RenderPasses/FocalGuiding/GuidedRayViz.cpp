@@ -83,6 +83,7 @@ void GuidedRayViz::execute(RenderContext* pRenderContext, const RenderData& rend
 
 void GuidedRayViz::renderUI(Gui::Widgets& widget)
 {
+    widget.slider("line scale", mLineLengthScale, 0.0f, 1.0f);
     bool shouldRecomputeRays = widget.button("recompute rays");
     if (shouldRecomputeRays)
     {
@@ -168,11 +169,10 @@ void GuidedRayViz::createTube(SceneBuilder::ProcessedMesh& mesh, GuidedRayLine r
 {
     int numSegments = 6;
     float lineWidth = 0.002f;
-    float lineLengthScale = 0.5f;
 
     float3 s = rayLine.pos1;
     float3 diff = rayLine.pos2 - rayLine.pos1;
-    float lineLenght = length(diff) * lineLengthScale;
+    float lineLenght = length(diff) * mLineLengthScale;
     float3 dir = normalize(diff);
     float3 uDir = getPerpendicualrTo(dir);
     float3 vDir = cross(dir, uDir);

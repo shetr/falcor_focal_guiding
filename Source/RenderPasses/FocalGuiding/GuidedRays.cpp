@@ -158,7 +158,8 @@ void GuidedRays::execute(RenderContext* pRenderContext, const RenderData& render
     auto var = mTracer.pVars->getRootVar();
     var["CB"]["gNodesSize"] = mNodesSize;
     var["CB"]["gGuidedRaysPos"] = mGuidedRaysPos;
-    var["CB"]["gGuidedRayLinesSize"] = mGuidedRaysSize;
+    var["CB"]["gGuidedRayLinesSize"] = mGuidedRaysSize * mLinesPathLenght;
+    var["CB"]["gLinesPathLenght"] = mLinesPathLenght;
     var["CB"]["gSceneBoundsMin"] = mpScene->getSceneBounds().minPoint;
     var["CB"]["gSceneBoundsMax"] = mpScene->getSceneBounds().maxPoint;
     var["CB"]["gFrameCount"] = mFrameCount;
@@ -210,6 +211,7 @@ void GuidedRays::renderUI(Gui::Widgets& widget)
     raysStateChanged |= widget.slider("rays pos X", mGuidedRaysPos.x, 0.0f, 1.0f);
     raysStateChanged |= widget.slider("rays pos Y", mGuidedRaysPos.y, 0.0f, 1.0f);
     raysStateChanged |= widget.slider("rays count", mGuidedRaysSize, 1u, mMaxGuidedRaysSize);
+    raysStateChanged |= widget.slider("path length", mLinesPathLenght, 1u, 5u);
     if (raysStateChanged)
     {
         //mComputeRays = true;

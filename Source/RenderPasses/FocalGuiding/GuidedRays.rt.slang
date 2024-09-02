@@ -20,6 +20,7 @@ cbuffer CB
     uint gNodesSize;
     float2 gGuidedRaysPos;
     uint gGuidedRayLinesSize;
+    uint gLinesPathLenght;
     float3 gSceneBoundsMin;
     float3 gSceneBoundsMax;
     uint gFrameCount;    // Frame count since scene was loaded.
@@ -353,6 +354,13 @@ float3 evalDirectAnalytic(const ShadingData sd, const IMaterialInstance mi, inou
     return mi.eval(sd, ls.dir, sg) * ls.Li * invPdf;
 }
 
+float getMisWeight(const ShadingData sd, const IMaterialInstance mi, float3 origin, float3 dir)
+{
+    float bsdfPdf = mi.evalPdf(sd, dir, kUseImportanceSampling);
+    float guidedPdf = getDirectionPdf(origin, dir);
+    return 1 / (gGuidedRayProb * guidedPdf + (1 - gGuidedRayProb) * bsdfPdf);
+}
+
 void generateGuidedRay(const ShadingData sd, const IMaterialInstance mi, float3 rayOrigin, inout ScatterRayData rayData)
 {
     float3 dir = sampleDirectionByDensities(rayOrigin, rayData.sg);
@@ -364,16 +372,21 @@ void generateGuidedRay(const ShadingData sd, const IMaterialInstance mi, float3 
     // if ((NdotL <= kMinCosTheta && !hasTransmission) || (NdotL >= -kMinCosTheta && !hasReflection))
     //     return false;
 
-    rayOrigin = computeRayOrigin(sd.posW, dot(sd.faceN, dir) >= 0.f ? sd.faceN : -sd.faceN);
-
-    float pdf = getDirectionPdf(rayOrigin, dir);
-    // maybe MIS in the future
-    // pdf += mi.evalPdf(sd, dir, true);
-    float invPdf = 1 / pdf;
+    // rayOrigin = computeRayOrigin(sd.posW, dot(sd.faceN, dir) >= 0.f ? sd.faceN : -sd.faceN);
+    // rayOrigin = sd.computeRayOrigin(dot(dir, sd.faceN) >= 0.f);
+    if ((sd.frontFacing && dot(dir, sd.faceN) <= 0.f) || (!sd.frontFacing && dot(dir, sd.faceN) <= 0.f)) {
+        rayOrigin = sd.computeRayOrigin(false);
+    }
 
     rayData.origin = rayOrigin;
     rayData.direction = dir;
-    rayData.thp *= mi.eval(sd, dir, rayData.sg) * invPdf;
+
+    // float pdf = getDirectionPdf(rayOrigin, dir);
+    // float invPdf = 1 / pdf;
+    // rayData.thp *= mi.eval(sd, dir, rayData.sg) * invPdf;
+
+    float misWeight = getMisWeight(sd, mi, rayOrigin, dir);
+    rayData.thp *= mi.eval(sd, dir, rayData.sg) * misWeight;
 }
 
 /** Generate a new scatter ray or terminate.
@@ -391,33 +404,35 @@ bool generateScatterRay(const ShadingData sd, const IMaterialInstance mi, bool i
     if (mi.sample(sd, rayData.sg, bsdfSample, kUseImportanceSampling))
     {
         rayData.origin = rayOrigin;
-        if (!isCurveHit && bsdfSample.isLobe(LobeType::Transmission))
+        if (bsdfSample.isLobe(LobeType::Transmission))
         {
             rayData.origin = sd.computeRayOrigin(false);
         }
         rayData.direction = bsdfSample.wo;
-        //float pdf = mi.evalPdf(sd, rayData.direction, kUseImportanceSampling);
-        //float spatialPdf = getDirectionPdf(rayData.origin, rayData.direction);
-        //float weight = pdf / (spatialPdf + pdf);
-        //rayData.thp *= bsdfSample.weight * weight;
-        rayData.thp *= bsdfSample.weight;
+        float misWeight = getMisWeight(sd, mi, rayData.origin, rayData.direction);
+        rayData.thp *= mi.eval(sd, rayData.direction, rayData.sg) * misWeight;
+        // rayData.thp *= bsdfSample.weight;
         return any(rayData.thp > 0.f);
     }
 
     return false;
 }
 
-float3 sampleSpherical(out float pdf, inout SampleGenerator sg)
+float3 sampleSpherical(float3 normal, float3 tangent, out bool isOut, out float pdf, inout SampleGenerator sg)
 {
+    float3 X = tangent;
+    float3 Y = cross(normal, tangent);
+    float3 Z = normal;
     float phi = sampleNext1D(sg) * 2 * M_PI;
     float theta = sampleNext1D(sg) * M_PI;
+    isOut = theta <= M_PI * 0.5;
     float sinTheta = sin(theta);
     pdf = getSphericalPdfSinTheta(sinTheta);
-    return float3(
-        cos(phi) * sinTheta,
-        sin(phi) * sinTheta,
-        cos(theta)
-    );
+    return
+        X * cos(phi) * sinTheta +
+        Y * sin(phi) * sinTheta +
+        Z * cos(theta)
+    ;
 }
 
 float getSphericalPdfSinTheta(float sinTheta)
@@ -434,8 +449,11 @@ float getSphericalPdf(float3 dir)
 void generateSphericalRay(const ShadingData sd, const IMaterialInstance mi, float3 rayOrigin, inout ScatterRayData rayData)
 {
     float pdf;
-    float3 dir = sampleSpherical(pdf, rayData.sg);
+    bool isOut;
+    float3 dir = sampleSpherical(sd.faceN, normalize(sd.tangentW.xyz), isOut, pdf, rayData.sg);
     float invPdf = 1 / pdf;
+
+    rayOrigin = computeRayOrigin(sd.posW, isOut ? sd.faceN : -sd.faceN);
 
     rayData.origin = rayOrigin;
     rayData.direction = dir;
@@ -479,7 +497,7 @@ void handleHit(const HitInfo hit, inout ScatterRayData rayData)
 #endif
 
     // Check whether to terminate based on max depth.
-    if (rayData.pathLength >= kMaxBounces)
+    if (rayData.pathLength >= gLinesPathLenght)
     {
         rayData.terminated = true;
         return;
@@ -497,22 +515,11 @@ void handleHit(const HitInfo hit, inout ScatterRayData rayData)
     }
 #endif
 
-    // spatial ray sampling
-    //if (kComputeDirect || rayData.pathLength > 0)
-    //{
-    //    SpatialRayData spatialRay = generateSpatialRay(sd, mi, rayOrigin, rayData.sg, rayData.thp);
-    //    traceSpatialRay(spatialRay);
-    //    bool v = traceShadowRay(rayOrigin, spatialRay.direction, length(spatialRay.hitPos - spatialRay.origin));
-    //    if (v) {
-    //        rayData.radiance += spatialRay.radiance;
-    //    }
-    //}
-
     if (sampleNext1D(rayData.sg) < gGuidedRayProb) {
         // Generate scatter ray for the next path segment.
         // The raygen shader will continue the path based on the returned payload.
-        generateGuidedRay(sd, mi, rayOrigin, rayData);
-        //generateSphericalRay(sd, mi, rayOrigin, rayData);
+        // generateGuidedRay(sd, mi, rayOrigin, rayData);
+        generateSphericalRay(sd, mi, rayOrigin, rayData);
     } else {
         // Generate scatter ray for the next path segment.
         // The raygen shader will continue the path based on the returned payload.
@@ -521,7 +528,6 @@ void handleHit(const HitInfo hit, inout ScatterRayData rayData)
             rayData.terminated = true;
             return;
         }
-
     }
 
     rayData.pathLength++;
@@ -586,7 +592,7 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
 
         // Prepare ray payload.
         ScatterRayData rayData = ScatterRayData(sg);
-        for (uint i = 0; i < gGuidedRayLinesSize; ++i)
+        for (uint i = 0; i < gGuidedRayLinesSize / gLinesPathLenght; ++i)
         {
             float prob = 1.0;
             if (sampleNext1D(rayData.sg) < gGuidedRayProb) {
@@ -601,11 +607,25 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
                     prob = mi.evalPdf(sd, rayData.direction, kUseImportanceSampling);
                 }
             }
-            gGuidedRayLines[i].pos1 = rayData.origin;
-            gGuidedRayLines[i].pos2 = rayData.origin + rayData.direction * prob;
-            gGuidedRayLines[i].color = rayData.radiance;
+            if (gLinesPathLenght == 1)
+            {
+                gGuidedRayLines[i].pos1 = rayData.origin;
+                gGuidedRayLines[i].pos2 = rayData.origin + rayData.direction * prob;
+                gGuidedRayLines[i].color = rayData.radiance;
 
-            rayData = ScatterRayData(rayData.sg);
+                rayData = ScatterRayData(rayData.sg);
+            }
+            else
+            {
+                for (int l = 0; l < gLinesPathLenght; l++)
+                {
+                    gGuidedRayLines[i * gLinesPathLenght + l].pos1 = rayData.origin;
+                    gGuidedRayLines[i * gLinesPathLenght + l].color = rayData.radiance;
+                    traceScatterRay(rayData);
+                    gGuidedRayLines[i * gLinesPathLenght + l].pos2 = rayData.origin;
+                }
+                rayData = ScatterRayData(rayData.sg);
+            }
         }
 
 

@@ -40,6 +40,7 @@ private:
 
     uint mMaxGuidedRaysSize = 1000;
     uint mGuidedRaysSize = 10;
+    uint mLinesPathLenght = 1;
     ref<Buffer> mGuidedRays;
     bool mComputeRays = true;
 
