@@ -52,23 +52,23 @@ void NodeSplitting::execute(RenderContext* pRenderContext, const RenderData& ren
     mNodesSize = dict["gNodesSize"];
     mMaxOctreeDepth = dict["gMaxOctreeDepth"];
 
+    mNodesSizeBuffer->setElement(0, mNodesSize);
+
     // Set constants.
     auto var = mpVars->getRootVar();
-    var["CB"]["gNodesInSize"] = mNodesSize;
     var["CB"]["gSplittingThreshold"] = mSplittingThreshold;
 
     auto nodesVar = mpNodesBlock->getRootVar();
     nodesVar["nodes"] = mNodes;
-    auto nodesTempVar = mpNodesTempBlock->getRootVar();
-    nodesTempVar["nodes"] = mNodesTemp;
-    var["gNodesIn"] = mpNodesBlock;
-    var["gNodesOut"] = mpNodesBlock;
-    var["gNodesOutSize"] = mNodesTempSizeBuffer;
+    var["gNodes"] = mpNodesBlock;
+    var["gNodesSize"] = mNodesSizeBuffer;
 
-    uint3 numGroups = uint3(1, 1, 1);
+    uint3 numGroups = uint3(mNodesSize, 1, 1);
     mpState->setProgram(mpProgram);
     pRenderContext->dispatch(mpState.get(), mpVars.get(), numGroups);
-    
+
+    mNodesSize = mNodesSizeBuffer->getElement<uint>(0);
+    dict["gNodesSize"] = mNodesSize;
 }
 
 void NodeSplitting::renderUI(Gui::Widgets& widget)
@@ -88,20 +88,11 @@ void NodeSplitting::setScene(RenderContext* pRenderContext, const ref<Scene>& pS
     mpNodesBlock = ParameterBlock::create(mpDevice, pReflector);
     auto nodesVar = mpNodesBlock->getRootVar();
     nodesVar["nodes"] = mNodes;
-    mpNodesTempBlock = ParameterBlock::create(mpDevice, pReflector);
-    auto nodesTempVar = mpNodesTempBlock->getRootVar();
-    nodesTempVar["nodes"] = mNodesTemp;
 }
 
 void NodeSplitting::prepareVars()
 {
     FALCOR_ASSERT(mpProgram)
 
-    auto var = mpVars->getRootVar();
-    ResourceBindFlags bindFlags = ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess | ResourceBindFlags::Shared;
-    MemoryType memoryType = MemoryType::DeviceLocal;
-    mNodesTempSize = 1;
-    mNodesTemp = mpDevice->createBuffer(mNodesTempSize * sizeof(DensityNode), bindFlags, memoryType);
-
-    mNodesTempSizeBuffer = mpDevice->createBuffer(1 * sizeof(float), bindFlags, memoryType, &mNodesTempSize);
+    mNodesSizeBuffer = mpDevice->createBuffer(1 * sizeof(float), bindFlags, memoryType, &mNodesSize);
 }

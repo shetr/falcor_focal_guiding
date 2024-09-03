@@ -1,12 +1,10 @@
 import DensityNode;
 
-ParameterBlock<DensityNodes> gNodesIn;
-ParameterBlock<DensityNodes> gNodesOut;
-RWByteAddressBuffer gNodesOutSize;
+ParameterBlock<DensityNodes> gNodes;
+RWByteAddressBuffer gNodesSize;
 
 cbuffer CB
 {
-    uint gNodesInSize;
     float gSplittingThreshold;
 }
 
@@ -18,18 +16,18 @@ void computeMain(uint3 threadId : SV_DispatchThreadID)
 
     for (int childIndex = 0; childIndex < 8; childIndex++)
     {
-        DensityChild child = gNodesIn.getChildNode(nodeIndex, childIndex);
-        gNodesOut.setChildNode(nodeIndex, childIndex, child);
+        DensityChild child = gNodes.getChildNode(nodeIndex, childIndex);
+        // TODO: need to check max depth and max node count
         if (child.isLeaf() && child.density > gSplittingThreshold)
         {
             uint newNodeIndex;
-            gNodesOutSize.InterlockedAdd(0, 1, newNodeIndex);
-            gNodesOut.setChildNodeIndex(nodeIndex, childIndex, newNodeIndex);
+            gNodesSize.InterlockedAdd(0, 1, newNodeIndex);
+            gNodes.setChildNodeIndex(nodeIndex, childIndex, newNodeIndex);
             for (int ch = 0; ch < 8; ch++)
             {
-                gNodesOut.setChildNodeIndex(newNodeIndex, ch, 0);
-                gNodesOut.setChildAccumulator(newNodeIndex, ch, 1.0);
-                gNodesOut.setChildDensity(newNodeIndex, ch, 1.0 / 8.0);
+                gNodes.setChildNodeIndex(newNodeIndex, ch, 0);
+                gNodes.setChildAccumulator(newNodeIndex, ch, 1.0);
+                gNodes.setChildDensity(newNodeIndex, ch, 1.0 / 8.0);
             }
         }
     }
