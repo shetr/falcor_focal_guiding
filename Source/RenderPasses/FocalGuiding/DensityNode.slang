@@ -38,6 +38,14 @@ struct DensityNodes
         return child;
     }
 
+    void setChildNode(uint parentNodeIndex, uint childOffset, DensityChild child)
+    {
+        uint childIndex = parentNodeIndex * DESNITY_NODE_SIZE + childOffset * DESNITY_CHILD_SIZE;
+        nodes.Store(childIndex + DESNITY_CHILD_INDEX_OFFSET, child.index);
+        nodes.Store(childIndex + DESNITY_CHILD_ACCUMULATOR_OFFSET, child.accumulator);
+        nodes.Store(childIndex + DESNITY_CHILD_DENSITY_OFFSET, child.density);
+    }
+
     bool isChildNodeLeaf(uint parentNodeIndex, uint childOffset)
     {
         return getChildNodeIndex(parentNodeIndex, childOffset) == 0;

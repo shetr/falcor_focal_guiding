@@ -19,7 +19,8 @@ void computeMain(uint3 threadId : SV_DispatchThreadID)
     for (int childIndex = 0; childIndex < 8; childIndex++)
     {
         DensityChild child = gNodesIn.getChildNode(nodeIndex, childIndex);
-        if (child.density > gSplittingThreshold)
+        gNodesOut.setChildNode(nodeIndex, childIndex, child);
+        if (child.isLeaf() && child.density > gSplittingThreshold)
         {
             uint newNodeIndex;
             gNodesOutSize.InterlockedAdd(0, 1, newNodeIndex);
