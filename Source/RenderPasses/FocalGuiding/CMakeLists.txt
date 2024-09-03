@@ -20,6 +20,9 @@ target_sources(FocalGuiding PRIVATE
     GuidedRays.rt.slang
     GuidedRayLine.h
     GuidedRayLine.slang
+    NodeSplitting.h
+    NodeSplitting.cpp
+    NodeSplitting.slang
 )
 
 target_copy_shaders(FocalGuiding RenderPasses/FocalGuiding)

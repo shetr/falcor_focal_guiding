@@ -5,6 +5,7 @@
 #include "FocalViz.h"
 #include "GuidedRayViz.h"
 #include "GuidedRays.h"
+#include "NodeSplitting.h"
 
 extern "C" FALCOR_API_EXPORT void registerPlugin(Falcor::PluginRegistry& registry)
 {
@@ -13,6 +14,7 @@ extern "C" FALCOR_API_EXPORT void registerPlugin(Falcor::PluginRegistry& registr
     registry.registerClass<RenderPass, FocalViz>();
     registry.registerClass<RenderPass, GuidedRayViz>();
     registry.registerClass<RenderPass, GuidedRays>();
+    registry.registerClass<RenderPass, NodeSplitting>();
 }
 
 namespace
