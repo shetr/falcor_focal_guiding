@@ -55,6 +55,7 @@ void NodeSplitting::execute(RenderContext* pRenderContext, const RenderData& ren
     // Set constants.
     auto var = mpVars->getRootVar();
     var["CB"]["gNodesInSize"] = mNodesSize;
+    var["CB"]["gSplittingThreshold"] = mSplittingThreshold;
 
     auto nodesVar = mpNodesBlock->getRootVar();
     nodesVar["nodes"] = mNodes;

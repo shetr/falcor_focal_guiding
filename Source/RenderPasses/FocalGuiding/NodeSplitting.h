@@ -40,6 +40,7 @@ private:
     ref<Buffer> mNodesTempSizeBuffer;
     uint mMaxOctreeDepth = 3;
 
+    float mSplittingThreshold = 0.001f;
     bool mLimitedPasses = true;
     uint mMaxPassCount = 5;
 

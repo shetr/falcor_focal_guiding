@@ -31,8 +31,8 @@ rightWall.roughness = 0.5
 lens = StandardMaterial('Lens')
 lens.baseColor = float4(0.725, 0.71, 0.68, 1.0)
 lens.roughness = 0.3
-lens.diffuseTransmission = 0.45
-lens.specularTransmission = 0.5
+lens.diffuseTransmission = 0.2
+lens.specularTransmission = 0.7
 lens.transmissionColor = float3(0.725, 0.71, 0.68)
 
 # Create geometry
