@@ -94,5 +94,5 @@ void NodeSplitting::prepareVars()
 {
     FALCOR_ASSERT(mpProgram)
 
-    mNodesSizeBuffer = mpDevice->createBuffer(1 * sizeof(float), bindFlags, memoryType, &mNodesSize);
+    //mNodesSizeBuffer = mpDevice->createBuffer(1 * sizeof(float), bindFlags, memoryType, &mNodesSize);
 }
