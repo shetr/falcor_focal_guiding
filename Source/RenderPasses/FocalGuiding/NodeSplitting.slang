@@ -31,6 +31,7 @@ void computeMain(uint3 threadId : SV_DispatchThreadID)
                     for (int ch = 0; ch < 8; ch++)
                     {
                         gNodes.setChildNodeIndex(newNodeIndex, ch, 0);
+                        // put parent acc / 8
                         gNodes.setChildAccumulator(newNodeIndex, ch, 1.0);
                         gNodes.setChildDensity(newNodeIndex, ch, 1.0 / 8.0);
                     }

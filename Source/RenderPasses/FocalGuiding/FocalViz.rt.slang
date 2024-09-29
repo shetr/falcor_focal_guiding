@@ -176,6 +176,7 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
         ++nodesStackSize;
         AABB box = AABB(gSceneBoundsMin, gSceneBoundsMax);
         uint failsafe = 0;
+        // TODO: make the execution order from front or back, to make it possible to visualize with additive transparency
         while (nodesStackSize > 0 && failsafe < 9 * gNodesSize)
         {
             uint topIndex = nodesStackSize - 1;

@@ -1,5 +1,6 @@
 
 import Utils.Math.AABB;
+import Utils.Geometry.IntersectionHelpers;
 
 #define DESNITY_CHILD_SIZE (3 * 4)
 #define DESNITY_CHILD_INDEX_OFFSET 0
@@ -131,6 +132,91 @@ AABB extendBox(AABB box, uint3 axisIndices)
     extendedBox.maxPoint = extendedBox.minPoint + 2.0 * halfExtent;
     return extendedBox;
 }
+
+struct NodeTraversal
+{
+    ParameterBlock<DensityNodes> nodes;
+    uint nodesSize;
+    RWByteAddressBuffer globalAccumulator;
+    AABB initBox;
+
+    __init(ParameterBlock<DensityNodes> _nodes, uint _nodesSize, RWByteAddressBuffer _globalAccumulator, AABB _initBox)
+    {
+        nodes = _nodes;
+        nodesSize = _nodesSize;
+        globalAccumulator = _globalAccumulator;
+        initBox = _initBox;
+    }
+
+    void traverse(float3 rayOrigin, float3 rayDir, float3 hitPos) {
+        float maxDensity = 0.0;
+        float3 hitDir = hitPos - rayOrigin;
+        float hitDist = length(hitDir);
+        float rayLength = length(rayDir);
+
+        NodeTravRef nodesStack[MAX_OCTREE_DEPTH];
+        uint nodesStackSize = 0;
+        // push first node
+        nodesStack[nodesStackSize] = NodeTravRef(0);
+        ++nodesStackSize;
+        //AABB box = AABB(gSceneBoundsMin, gSceneBoundsMax);
+        AABB box = initBox;
+        uint failsafe = 0;
+        while (nodesStackSize > 0 && failsafe < 9 * nodesSize)
+        {
+            uint topIndex = nodesStackSize - 1;
+            if (nodesStack[topIndex].child >= 8) {
+                // pop node
+                --nodesStackSize;
+                // correct the box
+                if (nodesStackSize > 0) {
+                    topIndex = nodesStackSize - 1;
+                    uint currChildIndex = nodesStack[topIndex].child - 1;
+                    int3 axisIndices = unpackOctreeChildIndex(currChildIndex);
+                    box = extendBox(box, axisIndices);
+                }
+            }
+            else
+            {
+                uint nodeIndex = nodesStack[topIndex].node;
+                uint childIndex = nodesStack[topIndex].child;
+                DensityChild child = nodes.getChildNode(nodeIndex, childIndex);
+                int3 axisIndices = unpackOctreeChildIndex(childIndex);
+                AABB childBox = shrinkBox(box, axisIndices);
+
+                float2 nearFar;
+                bool intersected = intersectRayAABB(rayOrigin, rayDir, childBox.minPoint, childBox.maxPoint, nearFar);
+                if (intersected) {
+                    float near = length(rayDir * nearFar.x);
+                    float far = length(rayDir * nearFar.y);
+                    if (near < hitDist) {
+                        // TODO: visitChild function
+                        if (!child.isLeaf() && nodesStackSize < MAX_OCTREE_DEPTH) {
+                            box = childBox;
+                            // push node
+                            nodesStack[nodesStackSize] = NodeTravRef(child.index);
+                            ++nodesStackSize;
+                        }
+                    }
+                }
+
+                ++nodesStack[topIndex].child;
+            }
+            ++failsafe;
+        }
+    }
+
+}
+
+//interface IDensityAccumulator
+//{
+//    [mutating]
+//    void addDensity(float density);
+//
+//    float getResult();
+//}
+
+
 
 interface IDensityAccumulator
 {
