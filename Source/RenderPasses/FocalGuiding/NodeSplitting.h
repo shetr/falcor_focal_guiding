@@ -34,6 +34,7 @@ private:
     ref<ParameterBlock> mpNodesBlock;
 
     uint mNodesSize = 1;
+    uint mMaxNodesSize = 1;
     ref<Buffer> mNodesSizeBuffer;
     uint mMaxOctreeDepth = 3;
 

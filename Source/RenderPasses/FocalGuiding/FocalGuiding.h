@@ -35,6 +35,7 @@ private:
     ref<ParameterBlock> mpNodesBlock;
 
     uint mNodesSize = 1;
+    uint mMaxNodesSize = 1;
     uint mMaxOctreeDepth = 3;
 
     // Configuration

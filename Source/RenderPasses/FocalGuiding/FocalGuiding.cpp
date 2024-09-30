@@ -140,6 +140,7 @@ void FocalGuiding::execute(RenderContext* pRenderContext, const RenderData& rend
 
     mNodes = dict["gNodes"];
     mNodesSize = dict["gNodesSize"];
+    mMaxNodesSize = dict["gMaxNodesSize"];
     mMaxOctreeDepth = dict["gMaxOctreeDepth"];
     dict["gMaxBounces"] = mMaxBounces;
     dict["gGuidedRayProb"] = mGuidedRayProb;
@@ -147,6 +148,7 @@ void FocalGuiding::execute(RenderContext* pRenderContext, const RenderData& rend
     dict["gUseImportanceSampling"] = mUseImportanceSampling;
 
     mTracer.pProgram->addDefine("MAX_OCTREE_DEPTH", std::to_string(mMaxOctreeDepth));
+    mTracer.pProgram->addDefine("MAX_NODES_SIZE", std::to_string(mMaxNodesSize));
 
     // For optional I/O resources, set 'is_valid_<name>' defines to inform the program of which ones it can access.
     // TODO: This should be moved to a more general mechanism using Slang.

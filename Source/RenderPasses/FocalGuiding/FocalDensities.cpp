@@ -24,6 +24,9 @@ const ChannelList kOutputChannels = {
 
 const char kMaxPassCount[] = "maxPasses";
 const char kLimitedPasses[] = "limitedPasses";
+const char kMaxNodesSize[] = "maxNodesSize";
+const char kInitOctreeDepth[] = "initOctreeDepth";
+const char kMaxOctreeDepth[] = "maxOctreeDepth";
 } // namespace
 
 FocalDensities::FocalDensities(ref<Device> pDevice, const Properties& props)
@@ -35,6 +38,12 @@ FocalDensities::FocalDensities(ref<Device> pDevice, const Properties& props)
             mMaxPassCount = value;
         else if (key == kLimitedPasses)
             mLimitedPasses = value;
+        else if (key == kMaxNodesSize)
+            mMaxNodesSize = value;
+        else if (key == kInitOctreeDepth)
+            mInitOctreeDepth = value;
+        else if (key == kMaxOctreeDepth)
+            mMaxOctreeDepth = value;
         else
             logWarning("Unknown property '{}' in FocalDensities properties.", key);
     }
@@ -95,6 +104,7 @@ void FocalDensities::execute(RenderContext* pRenderContext, const RenderData& re
     }
 
     mTracer.pProgram->addDefine("MAX_OCTREE_DEPTH", std::to_string(mMaxOctreeDepth));
+    mTracer.pProgram->addDefine("MAX_NODES_SIZE", std::to_string(mMaxNodesSize));
     mTracer.pProgram->addDefine("MAX_BOUNCES", std::to_string(mMaxBounces));
 
     // For optional I/O resources, set 'is_valid_<name>' defines to inform the program of which ones it can access.
@@ -116,7 +126,11 @@ void FocalDensities::execute(RenderContext* pRenderContext, const RenderData& re
 
     Dictionary& dict = renderData.getDictionary();
     dict["gNodes"] = mNodes;
-    dict["gNodesSize"] = mNodesSize;
+    if (!dict.keyExists("gNodesSize"))
+    {
+        dict["gNodesSize"] = mNodesSize;
+    }
+    dict["gMaxNodesSize"] = mMaxNodesSize;
     dict["gMaxOctreeDepth"] = mMaxOctreeDepth;
     // renderData holds the requested resources
     // auto& pTexture = renderData.getTexture("src");
@@ -258,7 +272,7 @@ void FocalDensities::prepareVars()
          {0, 0.0f, 0.9f},
          {0, 0.0f, 0.5f},
          {0, 0.0f, 1.0f}}}};
-    std::vector<DensityNode> densityNodes = genUniformNodes(mMaxOctreeDepth, false);
+    std::vector<DensityNode> densityNodes = genUniformNodes(mInitOctreeDepth, false);
     //std::vector<DensityNode> densityNodes = genRandomNodes();
     mNodesSize = (uint)densityNodes.size();
     //mNodes = mpDevice->createStructuredBuffer(var["gNodes"], mNodesSize, bindFlags, memoryType, densityNodes.data());
@@ -280,6 +294,8 @@ void FocalDensities::printNodes()
     for (uint i = 0; i < mNodesSize; ++i)
     {
         printf("  node: %d\n", i);
+        printf("    parentIndex:  %d\n", densityNodes[i].parentIndex);
+        printf("    parentOffset: %d\n", densityNodes[i].parentOffset);
         for (int ch = 0; ch < 8; ++ch)
         {
             DensityChild child = densityNodes[i].childs[ch];
@@ -330,8 +346,9 @@ DensityNode emptyNode()
 
 void FocalDensities::setUniformNodes()
 {
-    std::vector<DensityNode> uniformNodes = genUniformNodes(mMaxOctreeDepth, false);
+    std::vector<DensityNode> uniformNodes = genUniformNodes(mInitOctreeDepth, false);
     mNodes->setBlob(uniformNodes.data(), 0, uniformNodes.size() * sizeof(DensityNode));
+    mNodesSize = (uint)uniformNodes.size();
 
     float initAcc = 1.0f;
     mGlobalAccumulator->setBlob(&initAcc, 0, sizeof(float));

@@ -47,10 +47,26 @@ RenderPassReflection NodeSplitting::reflect(const CompileData& compileData)
 
 void NodeSplitting::execute(RenderContext* pRenderContext, const RenderData& renderData)
 {
+    if (!mpScene)
+    {
+        return;
+    }
+    if (mLimitedPasses && mPassCount >= mMaxPassCount)
+    {
+        return;
+    }
     Dictionary& dict = renderData.getDictionary();
+    if (!dict.keyExists("gNodes") || !dict.keyExists("gNodesSize") || !dict.keyExists("gMaxNodesSize") || !dict.keyExists("gMaxOctreeDepth"))
+    {
+        return;
+    }
     mNodes = dict["gNodes"];
     mNodesSize = dict["gNodesSize"];
+    mMaxNodesSize = dict["gMaxNodesSize"];
     mMaxOctreeDepth = dict["gMaxOctreeDepth"];
+
+    if (!mpVars)
+        prepareVars();
 
     mNodesSizeBuffer->setElement(0, mNodesSize);
 
@@ -62,6 +78,9 @@ void NodeSplitting::execute(RenderContext* pRenderContext, const RenderData& ren
     nodesVar["nodes"] = mNodes;
     var["gNodes"] = mpNodesBlock;
     var["gNodesSize"] = mNodesSizeBuffer;
+    
+    mpProgram->addDefine("MAX_OCTREE_DEPTH", std::to_string(mMaxOctreeDepth));
+    mpProgram->addDefine("MAX_NODES_SIZE", std::to_string(mMaxNodesSize));
 
     uint3 numGroups = uint3(mNodesSize, 1, 1);
     mpState->setProgram(mpProgram);
@@ -69,6 +88,8 @@ void NodeSplitting::execute(RenderContext* pRenderContext, const RenderData& ren
 
     mNodesSize = mNodesSizeBuffer->getElement<uint>(0);
     dict["gNodesSize"] = mNodesSize;
+
+    mPassCount++;
 }
 
 void NodeSplitting::renderUI(Gui::Widgets& widget)
@@ -79,6 +100,7 @@ void NodeSplitting::renderUI(Gui::Widgets& widget)
 
 void NodeSplitting::setScene(RenderContext* pRenderContext, const ref<Scene>& pScene)
 {
+    mpScene = pScene;
     DefineList defines;
     defines.add("DENSITY_NODES_BLOCK");
     auto pPass = ComputePass::create(mpDevice, "RenderPasses\\FocalGuiding\\DensityNode.slang", "main", defines);
@@ -94,5 +116,9 @@ void NodeSplitting::prepareVars()
 {
     FALCOR_ASSERT(mpProgram)
 
-    //mNodesSizeBuffer = mpDevice->createBuffer(1 * sizeof(float), bindFlags, memoryType, &mNodesSize);
+    mpVars = ProgramVars::create(mpDevice, mpProgram.get());
+
+    ResourceBindFlags bindFlags = ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess;
+    MemoryType memoryType = MemoryType::DeviceLocal;
+    mNodesSizeBuffer = mpDevice->createBuffer(1 * sizeof(float), bindFlags, memoryType, &mNodesSize);
 }

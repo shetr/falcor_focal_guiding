@@ -126,6 +126,7 @@ void GuidedRays::execute(RenderContext* pRenderContext, const RenderData& render
 
     mNodes = dict["gNodes"];
     mNodesSize = dict["gNodesSize"];
+    mMaxNodesSize = dict["gMaxNodesSize"];
     mMaxOctreeDepth = dict["gMaxOctreeDepth"];
 
     mMaxBounces = dict["gMaxBounces"];
@@ -142,6 +143,7 @@ void GuidedRays::execute(RenderContext* pRenderContext, const RenderData& render
     }
 
     mTracer.pProgram->addDefine("MAX_OCTREE_DEPTH", std::to_string(mMaxOctreeDepth));
+    mTracer.pProgram->addDefine("MAX_NODES_SIZE", std::to_string(mMaxNodesSize));
 
     // For optional I/O resources, set 'is_valid_<name>' defines to inform the program of which ones it can access.
     // TODO: This should be moved to a more general mechanism using Slang.
