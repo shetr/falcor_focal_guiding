@@ -38,7 +38,7 @@ private:
     ref<Buffer> mNodesSizeBuffer;
     uint mMaxOctreeDepth = 3;
 
-    float mSplittingThreshold = 0.001f;
+    float mSplittingThreshold = 0.000001f;
     bool mLimitedPasses = true;
     uint mMaxPassCount = 5;
 

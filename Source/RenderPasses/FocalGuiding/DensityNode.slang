@@ -39,7 +39,17 @@ struct DensityNodes
 
     uint getParentNodeOffset(uint nodeIndex)
     {
-        return nodes.Load<uint>(nodeIndex * DESNITY_NODE_SIZE + DESNITY_NODE_PARENT_INDEX_OFFSET);
+        return nodes.Load<uint>(nodeIndex * DESNITY_NODE_SIZE + DESNITY_NODE_PARENT_OFFSET_OFFSET);
+    }
+
+    uint setParentNodeIndex(uint nodeIndex, uint parentNodeIndex)
+    {
+        nodes.Store(nodeIndex * DESNITY_NODE_SIZE + DESNITY_NODE_PARENT_INDEX_OFFSET, parentNodeIndex);
+    }
+
+    uint setParentNodeOffset(uint nodeIndex, uint childOffset)
+    {
+        nodes.Store(nodeIndex * DESNITY_NODE_SIZE + DESNITY_NODE_PARENT_OFFSET_OFFSET, childOffset);
     }
 
     bool isNodeRoot(uint nodeIndex)

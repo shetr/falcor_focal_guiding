@@ -14,14 +14,14 @@ void computeMain(uint3 threadId : SV_DispatchThreadID)
 {
     uint nodeIndex = threadId.x;
 
-    if (gNodes.isNodeRoot(nodeIndex))
+    uint nodesSize = gNodesSize.Load<uint>(0);
+    if (gNodes.isNodeRoot(nodeIndex) || nodeIndex >= nodesSize)
     {
         return;
     }
 
     for (int childIndex = 0; childIndex < 8; childIndex++)
     {
-        uint nodesSize = gNodesSize.Load<uint>(0);
         if (nodesSize >= MAX_NODES_SIZE)
         {
             return;
@@ -48,13 +48,16 @@ void computeMain(uint3 threadId : SV_DispatchThreadID)
         {
             continue;
         }
-        float parentAccumulator = gNodes.getChildAccumulator(gNodes.getParentNodeIndex(nodeIndex), gNodes.getParentNodeOffset(nodeIndex));
+        parentIndex = gNodes.getParentNodeIndex(nodeIndex);
+        parentOffset = gNodes.getParentNodeOffset(nodeIndex);
+        float parentAccumulator = gNodes.getChildAccumulator(parentIndex, parentOffset);
         uint newNodeIndex;
         gNodesSize.InterlockedAdd(0, 1, newNodeIndex);
         if (newNodeIndex < MAX_NODES_SIZE)
         {
             gNodes.setChildNodeIndex(nodeIndex, childIndex, newNodeIndex);
-            // TODO: add parent indices
+            gNodes.setParentNodeIndex(newNodeIndex, parentIndex);
+            gNodes.setParentNodeOffset(newNodeIndex, parentOffset);
             for (int ch = 0; ch < 8; ch++)
             {
                 gNodes.setChildNodeIndex(newNodeIndex, ch, 0);
