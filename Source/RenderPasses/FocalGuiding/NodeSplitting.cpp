@@ -64,6 +64,9 @@ void NodeSplitting::execute(RenderContext* pRenderContext, const RenderData& ren
     mNodesSize = dict["gNodesSize"];
     mMaxNodesSize = dict["gMaxNodesSize"];
     mMaxOctreeDepth = dict["gMaxOctreeDepth"];
+    
+    mpProgram->addDefine("MAX_OCTREE_DEPTH", std::to_string(mMaxOctreeDepth));
+    mpProgram->addDefine("MAX_NODES_SIZE", std::to_string(mMaxNodesSize));
 
     if (!mpVars)
         prepareVars();
@@ -78,9 +81,6 @@ void NodeSplitting::execute(RenderContext* pRenderContext, const RenderData& ren
     nodesVar["nodes"] = mNodes;
     var["gNodes"] = mpNodesBlock;
     var["gNodesSize"] = mNodesSizeBuffer;
-    
-    mpProgram->addDefine("MAX_OCTREE_DEPTH", std::to_string(mMaxOctreeDepth));
-    mpProgram->addDefine("MAX_NODES_SIZE", std::to_string(mMaxNodesSize));
 
     uint3 numGroups = uint3(mNodesSize, 1, 1);
     mpState->setProgram(mpProgram);
