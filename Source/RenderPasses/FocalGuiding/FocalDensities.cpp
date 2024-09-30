@@ -276,7 +276,8 @@ void FocalDensities::prepareVars()
     //std::vector<DensityNode> densityNodes = genRandomNodes();
     mNodesSize = (uint)densityNodes.size();
     //mNodes = mpDevice->createStructuredBuffer(var["gNodes"], mNodesSize, bindFlags, memoryType, densityNodes.data());
-    mNodes = mpDevice->createBuffer(mNodesSize * sizeof(DensityNode), bindFlags | ResourceBindFlags::Shared, memoryType, densityNodes.data());
+    mNodes = mpDevice->createBuffer(mMaxNodesSize * sizeof(DensityNode), bindFlags | ResourceBindFlags::Shared, memoryType, nullptr);
+    mNodes->setBlob(densityNodes.data(), 0, mNodesSize * sizeof(DensityNode));
     mpSampleGenerator->bindShaderData(var);
 
     float initAcc = 1.0f;

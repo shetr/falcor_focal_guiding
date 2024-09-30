@@ -44,7 +44,7 @@ private:
     uint mNodesSize = 1;
     uint mMaxNodesSize = 2000;
     uint mInitOctreeDepth = 3;
-    uint mMaxOctreeDepth = 4;
+    uint mMaxOctreeDepth = 5;
 
     bool mPause = false;
     bool mLimitedPasses = true;
