@@ -306,7 +306,10 @@ DensityNode randNode()
          {0, 0.0f, genRand()},
          {0, 0.0f, genRand()},
          {0, 0.0f, genRand()},
-         {0, 0.0f, genRand()}}};
+         {0, 0.0f, genRand()}},
+        0,
+        0
+    };
 }
 
 DensityNode emptyNode()
@@ -319,7 +322,10 @@ DensityNode emptyNode()
          {0, 1.0f, 1.0f / 8.0f},
          {0, 1.0f, 1.0f / 8.0f},
          {0, 1.0f, 1.0f / 8.0f},
-         {0, 1.0f, 1.0f / 8.0f}}};
+         {0, 1.0f, 1.0f / 8.0f}},
+         0,
+         0
+    };
 }
 
 void FocalDensities::setUniformNodes()
@@ -373,6 +379,8 @@ std::vector<DensityNode> FocalDensities::genUniformNodes(uint depth, bool random
                         nodes.push_back(emptyNode());
                     }
                 }
+                nodes[nodes.size() - 1].parentIndex = i;
+                nodes[nodes.size() - 1].parentOffset = ch;
             }
         }
         ni += nc;

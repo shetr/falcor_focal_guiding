@@ -15,4 +15,6 @@ struct DensityChild
 struct DensityNode
 {
     DensityChild childs[8];
+    uint parentIndex;
+    uint parentOffset;
 };
