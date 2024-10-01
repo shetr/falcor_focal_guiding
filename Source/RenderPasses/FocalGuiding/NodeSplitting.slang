@@ -33,13 +33,13 @@ void computeMain(uint3 threadId : SV_DispatchThreadID)
         }
 
         uint depth = 0;
-        float density = gNodes.getChildDensity(nodeIndex, childIndex);
-        uint parentIndex = nodeIndex;
         uint parentOffset = childIndex;
+        uint parentIndex = nodeIndex;
+        float density = gNodes.getChildDensity(nodeIndex, childIndex);
         do
         {
-            parentIndex = gNodes.getParentNodeIndex(parentIndex);
             parentOffset = gNodes.getParentNodeOffset(parentIndex);
+            parentIndex = gNodes.getParentNodeIndex(parentIndex);
             density *= gNodes.getChildDensity(parentIndex, parentOffset);
             depth += 1;
         } while (!gNodes.isNodeRoot(parentIndex));
