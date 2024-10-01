@@ -26,14 +26,14 @@ void computeMain(uint3 threadId : SV_DispatchThreadID)
         {
             return;
         }
-        DensityChild child = gNodes.getChildNode(nodeIndex, childIndex);
-        if (!child.isLeaf())
+
+        if (!gNodes.isChildNodeLeaf(nodeIndex, childIndex))
         {
             continue;
         }
 
         uint depth = 0;
-        float density = child.density;
+        float density = gNodes.getChildDensity(nodeIndex, childIndex);
         uint parentIndex = nodeIndex;
         uint parentOffset = childIndex;
         do
@@ -48,20 +48,18 @@ void computeMain(uint3 threadId : SV_DispatchThreadID)
         {
             continue;
         }
-        parentIndex = gNodes.getParentNodeIndex(nodeIndex);
-        parentOffset = gNodes.getParentNodeOffset(nodeIndex);
-        float parentAccumulator = gNodes.getChildAccumulator(parentIndex, parentOffset);
         uint newNodeIndex;
         gNodesSize.InterlockedAdd(0, 1, newNodeIndex);
         if (newNodeIndex < MAX_NODES_SIZE)
         {
+            float accumulator = gNodes.getChildAccumulator(nodeIndex, childIndex);
             gNodes.setChildNodeIndex(nodeIndex, childIndex, newNodeIndex);
-            gNodes.setParentNodeIndex(newNodeIndex, parentIndex);
-            gNodes.setParentNodeOffset(newNodeIndex, parentOffset);
+            gNodes.setParentNodeIndex(newNodeIndex, nodeIndex);
+            gNodes.setParentNodeOffset(newNodeIndex, childIndex);
             for (int ch = 0; ch < 8; ch++)
             {
                 gNodes.setChildNodeIndex(newNodeIndex, ch, 0);
-                gNodes.setChildAccumulator(newNodeIndex, ch, parentAccumulator / 8.0);
+                gNodes.setChildAccumulator(newNodeIndex, ch, accumulator / 8.0);
                 gNodes.setChildDensity(newNodeIndex, ch, 1.0 / 8.0);
             }
         }

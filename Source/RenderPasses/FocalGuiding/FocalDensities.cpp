@@ -130,6 +130,10 @@ void FocalDensities::execute(RenderContext* pRenderContext, const RenderData& re
     {
         dict["gNodesSize"] = mNodesSize;
     }
+    else
+    {
+        mNodesSize = dict["gNodesSize"];
+    }
     dict["gMaxNodesSize"] = mMaxNodesSize;
     dict["gMaxOctreeDepth"] = mMaxOctreeDepth;
     // renderData holds the requested resources
