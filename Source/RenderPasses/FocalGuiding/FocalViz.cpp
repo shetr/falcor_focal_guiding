@@ -76,6 +76,7 @@ void FocalViz::execute(RenderContext* pRenderContext, const RenderData& renderDa
 
     Dictionary& dict = renderData.getDictionary();
     mNodes = dict["gNodes"];
+    mGlobalAccumulator = dict["gGlobalAccumulator"];
     mNodesSize = dict["gNodesSize"];
     mMaxNodesSize = dict["gMaxNodesSize"];
     mMaxOctreeDepth = dict["gMaxOctreeDepth"];
@@ -122,6 +123,7 @@ void FocalViz::execute(RenderContext* pRenderContext, const RenderData& renderDa
     nodes_var["nodes"] = mNodes;
 
     var["gNodes"] = mpNodesBlock;
+    var["gGlobalAccumulator"] = mGlobalAccumulator;
 
     // Get dimensions of ray dispatch.
     const uint2 targetDim = renderData.getDefaultTextureDims();

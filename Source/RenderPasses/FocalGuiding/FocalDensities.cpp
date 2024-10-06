@@ -134,6 +134,7 @@ void FocalDensities::execute(RenderContext* pRenderContext, const RenderData& re
     {
         mNodesSize = dict["gNodesSize"];
     }
+    dict["gGlobalAccumulator"] = mGlobalAccumulator;
     dict["gMaxNodesSize"] = mMaxNodesSize;
     dict["gMaxOctreeDepth"] = mMaxOctreeDepth;
     // renderData holds the requested resources

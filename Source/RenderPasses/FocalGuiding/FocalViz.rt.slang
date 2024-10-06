@@ -12,6 +12,7 @@ import DensityNode;
 
 // StructuredBuffer<DensityNode> gNodes;
 ParameterBlock<DensityNodes> gNodes;
+RWByteAddressBuffer gGlobalAccumulator;
 
 cbuffer CB
 {
@@ -162,10 +163,13 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
         float cosTheta = abs(dot(sd.V, sd.faceN));
         outColor += float3(cosTheta);
 
-        //MaxDensityAccumulator densityAcc;
-        BoundedDensityAccumulator densityAcc = BoundedDensityAccumulator(gMinDensity, gMaxDensity);
+        float globlaAcc = gGlobalAccumulator.Load<float>(0);
+
+        MaxDensityAccumulator densityAcc;
+        //BoundedDensityAccumulator densityAcc = BoundedDensityAccumulator(gMinDensity, gMaxDensity);
         float3 hitDir = rayOrigin - primaryRayOrigin;
         float hitDist = length(hitDir);
+        float nodeMultiplier = 1.0;
 
         NodeTravRef nodesStack[MAX_OCTREE_DEPTH];
         float parentDensities[MAX_OCTREE_DEPTH];
@@ -189,6 +193,7 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
                     uint currChildIndex = nodesStack[topIndex].child - 1;
                     int3 axisIndices = unpackOctreeChildIndex(currChildIndex);
                     box = extendBox(box, axisIndices);
+                    nodeMultiplier *= 0.125;
                 }
             }
             else
@@ -206,7 +211,8 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
                     float near = length(primaryRayDir * nearFar.x);
                     float far = length(primaryRayDir * nearFar.y);
                     if (near < hitDist) {
-                        float density = parentDensity * child.density;
+                        //float density = parentDensity * child.density;
+                        float density = nodeMultiplier * child.accumulator / globlaAcc;
                         if (child.isLeaf() || nodesStackSize >= MAX_OCTREE_DEPTH) {
                             //densityAcc.addDensity(density / (float)gFrameCount);
                             densityAcc.addDensity(density);
@@ -215,6 +221,7 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
                             // push node
                             nodesStack[nodesStackSize] = NodeTravRef(child.index);
                             parentDensities[nodesStackSize] = density;
+                            nodeMultiplier *= 8.0;
                             ++nodesStackSize;
                         }
                     }

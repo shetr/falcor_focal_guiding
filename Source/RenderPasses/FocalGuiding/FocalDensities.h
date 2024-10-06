@@ -42,7 +42,7 @@ private:
 
     uint mMaxBounces = 3;   
     uint mNodesSize = 1;
-    uint mMaxNodesSize = 100;
+    uint mMaxNodesSize = 2000;
     uint mInitOctreeDepth = 3;
     uint mMaxOctreeDepth = 5;
 
