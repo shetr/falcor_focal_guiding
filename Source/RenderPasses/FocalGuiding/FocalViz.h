@@ -6,6 +6,8 @@
 
 using namespace Falcor;
 
+#define VIZ_COLORS_COUNT 7
+
 class FocalViz : public RenderPass
 {
 public:
@@ -25,7 +27,11 @@ public:
     virtual bool onKeyEvent(const KeyboardEvent& keyEvent) override { return false; }
 
 private:
+    void parseProperties(const Properties& props);
     void prepareVars();
+
+    void setColors();
+    void setYellowToRedColors();
 
     // Internal state
     ref<Scene> mpScene; ///< Current scene.
@@ -38,9 +44,14 @@ private:
     uint mMaxOctreeDepth = 3;
 
     uint mFrameCount = 0;
-    uint mMaxSliderDensity = 1;
+    uint mMaxSliderDensity = 8;
     float mMinDensity = 0.0f;
-    float mMaxDensity = 0.1f;
+    float mMaxDensity = 1.0f;
+    
+    std::array<float3, VIZ_COLORS_COUNT> mVizColors;
+    bool mBlendFromScene = true;
+    bool mNormalsViz = false;
+
     bool mOptionsChanged = false;
 
     // Ray tracing program.

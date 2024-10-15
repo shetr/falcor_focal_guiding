@@ -21,13 +21,43 @@ const ChannelList kInputChannels = {
 const ChannelList kOutputChannels = {
     {"color", "gOutputColor", "Output color (sum of direct and indirect)", false, ResourceFormat::RGBA32Float},
 };
+const char kMinDensity[] = "mMinDensity";
+const char kMaxDensity[] = "mMaxDensity";
+const char kBlendFromScene[] = "blendFromScene";
+const char kNormalsViz[] = "normalsViz";
 } // namespace
 
-FocalViz::FocalViz(ref<Device> pDevice, const Properties& props) : RenderPass(pDevice) {}
+FocalViz::FocalViz(ref<Device> pDevice, const Properties& props) : RenderPass(pDevice)
+{
+    parseProperties(props);
+    setColors();
+}
+
+void FocalViz::parseProperties(const Properties& props)
+{
+    for (const auto& [key, value] : props)
+    {
+        if (key == kBlendFromScene)
+            mBlendFromScene = value;
+        else if (key == kNormalsViz)
+            mNormalsViz = value;
+        else if (key == kMinDensity)
+            mMinDensity = value;
+        else if (key == kMaxDensity)
+            mMaxDensity = value;
+        else
+            logWarning("Unknown property '{}' in FocalGuiding properties.", key);
+    }
+}
 
 Properties FocalViz::getProperties() const
 {
-    return {};
+    Properties props;
+    props[kMinDensity] = mMinDensity;
+    props[kMaxDensity] = mMaxDensity;
+    props[kBlendFromScene] = mBlendFromScene;
+    props[kNormalsViz] = mNormalsViz;
+    return props;
 }
 
 RenderPassReflection FocalViz::reflect(const CompileData& compileData)
@@ -83,6 +113,7 @@ void FocalViz::execute(RenderContext* pRenderContext, const RenderData& renderDa
 
     mTracer.pProgram->addDefine("MAX_OCTREE_DEPTH", std::to_string(mMaxOctreeDepth));
     mTracer.pProgram->addDefine("MAX_NODES_SIZE", std::to_string(mMaxNodesSize));
+    mTracer.pProgram->addDefine("VIZ_COLORS_COUNT", std::to_string(VIZ_COLORS_COUNT));
 
     // For optional I/O resources, set 'is_valid_<name>' defines to inform the program of which ones it can access.
     // TODO: This should be moved to a more general mechanism using Slang.
@@ -103,6 +134,13 @@ void FocalViz::execute(RenderContext* pRenderContext, const RenderData& renderDa
     var["CB"]["gSceneBoundsMax"] = mpScene->getSceneBounds().maxPoint;
     var["CB"]["gMinDensity"] = mMinDensity;
     var["CB"]["gMaxDensity"] = mMaxDensity;
+
+    for (int i = 0; i < VIZ_COLORS_COUNT; i++)
+    {
+        var["CB"]["gVizColors"][i] = mVizColors[i];
+    }
+    var["CB"]["gBlendFromScene"] = mBlendFromScene;
+    var["CB"]["gNormalsViz"] = mNormalsViz;
     // renderData holds the requested resources
     // auto& pTexture = renderData.getTexture("src");
 
@@ -147,6 +185,11 @@ void FocalViz::renderUI(Gui::Widgets& widget)
 
     dirty |= widget.slider("Max density", mMaxDensity, mMinDensity, (float)mMaxSliderDensity);
     widget.tooltip("Maximum visualized density.", true);
+
+    
+    dirty |= widget.checkbox("Blend from scene", mBlendFromScene);
+
+    dirty |= widget.checkbox("Viz normals", mNormalsViz);
 
     // If rendering options that modify the output have changed, set flag to indicate that.
     // In execute() we will pass the flag to other passes for reset of temporal data etc.
@@ -224,4 +267,18 @@ void FocalViz::prepareVars()
     // Create program variables for the current program.
     // This may trigger shader compilation. If it fails, throw an exception to abort rendering.
     mTracer.pVars = RtProgramVars::create(mpDevice, mTracer.pProgram, mTracer.pBindingTable);
+}
+
+void FocalViz::setColors()
+{
+    setYellowToRedColors();
+}
+
+void FocalViz::setYellowToRedColors()
+{
+    for (int i = 0; i < VIZ_COLORS_COUNT; i++)
+    {
+        float t = ((float)i) / (VIZ_COLORS_COUNT - 1);
+        mVizColors[i] = float3((1.0 - t), (1.0 - t), 0.0) + float3(t, 0.0, 0.0);
+    }
 }

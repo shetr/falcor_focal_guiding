@@ -22,6 +22,10 @@ cbuffer CB
     float3 gSceneBoundsMax;
     float gMinDensity;
     float gMaxDensity;
+    // colors
+    float3 gVizColors[VIZ_COLORS_COUNT];
+    bool gBlendFromScene;
+    bool gNormalsViz;
 }
 
 // Inputs
@@ -39,6 +43,20 @@ static const float kRayTMax = FLT_MAX;
 // static const float3 kMinColor = float3(0.5, 0.5, 0);
 static const float3 kMinColor = float3(1, 1, 0);
 static const float3 kMaxColor = float3(1, 0, 0);
+
+float3 getVizColor(float t)
+{
+    float scaled = t * (VIZ_COLORS_COUNT - 1);
+    for (int i = 0; i < VIZ_COLORS_COUNT - 1; i++)
+    {
+        if (scaled >= i && scaled <= i + 1)
+        {
+            t = scaled - (float)i;
+            return (1 - t) * gVizColors[i] + t * gVizColors[i + 1];
+        }
+    }
+    return gVizColors[VIZ_COLORS_COUNT - 1];
+}
 
 struct ScatterRayData
 {
@@ -134,8 +152,6 @@ bool traceShadowRay(float3 origin, float3 dir, float distance)
     return rayData.visible;
 }
 
-//#define SHOW_NORMALS
-
 float3 tracePath(const uint2 pixel, const uint2 frameDim)
 {
     float3 outColor = float3(0.f);
@@ -210,7 +226,7 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
                 if (intersected) {
                     float near = length(primaryRayDir * nearFar.x);
                     float far = length(primaryRayDir * nearFar.y);
-                    if (near < hitDist) {
+                    if (near < hitDist || !gBlendFromScene) {
                         //float density = parentDensity * child.density;
                         float density = nodeMultiplier * child.accumulator / globlaAcc;
                         if (child.isLeaf() || nodesStackSize >= MAX_OCTREE_DEPTH) {
@@ -233,14 +249,23 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
         }
 
         float t = densityAcc.getResult();
-        float3 densityVizColor = kMinColor * (1 - t) + kMaxColor * t;
+        t = (clamp(t, gMinDensity, gMaxDensity) - gMinDensity) / (gMaxDensity - gMinDensity);
+        //float3 densityVizColor = kMinColor * (1 - t) + kMaxColor * t;
+        float3 densityVizColor = getVizColor(t);
 
-        outColor = outColor * (1 - t) + densityVizColor * t;
-        //outColor *= densityVizColor;
+        if (gBlendFromScene)
+        {
+            outColor = outColor * (1 - t) + densityVizColor * t;
+        }
+        else
+        {
+            outColor = densityVizColor;
+        }
 
-#ifdef SHOW_NORMALS
-        outColor = (sd.getOrientedFaceNormal() + float3(1)) * 0.5;
-#endif
+        if (gNormalsViz)
+        {
+            outColor = (sd.getOrientedFaceNormal() + float3(1)) * 0.5;
+        }
     }
     else
     {
