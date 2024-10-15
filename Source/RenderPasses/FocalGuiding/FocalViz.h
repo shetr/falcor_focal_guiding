@@ -8,9 +8,30 @@ using namespace Falcor;
 
 #define VIZ_COLORS_COUNT 7
 
+
 class FocalViz : public RenderPass
 {
 public:
+    enum class VizColorPalette : uint32_t
+    {
+        YellowToRed,
+        Viridis,
+        Inferno,
+        Magma,
+        Plasma
+    };
+
+    FALCOR_ENUM_INFO(
+        VizColorPalette,
+        {
+            {VizColorPalette::YellowToRed, "YellowToRed"},
+            {VizColorPalette::Viridis, "Viridis"},
+            {VizColorPalette::Inferno, "Inferno"},
+            {VizColorPalette::Magma, "Magma"},
+            {VizColorPalette::Plasma, "Plasma"},
+        }
+    );
+
     FALCOR_PLUGIN_CLASS(FocalViz, "FocalViz", "Insert pass description here.");
 
     static ref<FocalViz> create(ref<Device> pDevice, const Properties& props) { return make_ref<FocalViz>(pDevice, props); }
@@ -30,6 +51,7 @@ private:
     void parseProperties(const Properties& props);
     void prepareVars();
 
+    float3 rgb(int r, int g, int b);
     void setColors();
     void setYellowToRedColors();
 
@@ -49,6 +71,7 @@ private:
     float mMaxDensity = 1.0f;
     
     std::array<float3, VIZ_COLORS_COUNT> mVizColors;
+    VizColorPalette mColorPalette = VizColorPalette::Viridis;
     bool mBlendFromScene = true;
     bool mNormalsViz = false;
 
@@ -62,3 +85,5 @@ private:
         ref<RtProgramVars> pVars;
     } mTracer;
 };
+
+FALCOR_ENUM_REGISTER(FocalViz::VizColorPalette);

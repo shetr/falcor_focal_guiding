@@ -186,6 +186,10 @@ void FocalViz::renderUI(Gui::Widgets& widget)
     dirty |= widget.slider("Max density", mMaxDensity, mMinDensity, (float)mMaxSliderDensity);
     widget.tooltip("Maximum visualized density.", true);
 
+    if (widget.dropdown("Color palette", mColorPalette))
+    {
+        setColors();
+    }
     
     dirty |= widget.checkbox("Blend from scene", mBlendFromScene);
 
@@ -269,9 +273,57 @@ void FocalViz::prepareVars()
     mTracer.pVars = RtProgramVars::create(mpDevice, mTracer.pProgram, mTracer.pBindingTable);
 }
 
+float3 FocalViz::rgb(int r, int g, int b)
+{
+    return float3(((float)r) / 255.0f, ((float)g) / 255.0f, ((float)b) / 255.0f);
+}
+
 void FocalViz::setColors()
 {
-    setYellowToRedColors();
+    switch (mColorPalette)
+    {
+    case VizColorPalette::YellowToRed:
+        setYellowToRedColors();
+        break;
+    case VizColorPalette::Viridis:
+        mVizColors[6] = rgb(253, 231, 37);
+        mVizColors[5] = rgb(144, 215, 67);
+        mVizColors[4] = rgb(53, 183, 121);
+        mVizColors[3] = rgb(33, 145, 140);
+        mVizColors[2] = rgb(49, 104, 142);
+        mVizColors[1] = rgb(68, 57, 131);
+        mVizColors[0] = rgb(68, 1, 84);
+        break;
+    case VizColorPalette::Inferno:
+        mVizColors[6] = rgb(252, 255, 164);
+        mVizColors[5] = rgb(251, 182, 26);
+        mVizColors[4] = rgb(237, 105, 37);
+        mVizColors[3] = rgb(188, 55, 84);
+        mVizColors[2] = rgb(120, 28, 109);
+        mVizColors[1] = rgb(50, 10, 94);
+        mVizColors[0] = rgb(0, 0, 4);
+        break;
+    case VizColorPalette::Magma:
+        mVizColors[6] = rgb(252, 253, 191);
+        mVizColors[5] = rgb(254, 176, 120);
+        mVizColors[4] = rgb(241, 96, 93);
+        mVizColors[3] = rgb(183, 55, 121);
+        mVizColors[2] = rgb(114, 31, 129);
+        mVizColors[1] = rgb(44, 17, 95);
+        mVizColors[0] = rgb(0, 0, 4);
+        break;
+    case VizColorPalette::Plasma:
+        mVizColors[6] = rgb(240, 249, 33);
+        mVizColors[5] = rgb(253, 180, 47);
+        mVizColors[4] = rgb(237, 121, 83);
+        mVizColors[3] = rgb(204, 71, 120);
+        mVizColors[2] = rgb(156, 23, 158);
+        mVizColors[1] = rgb(92, 1, 166);
+        mVizColors[0] = rgb(13, 8, 135);
+        break;
+    default:
+        break;
+    }
 }
 
 void FocalViz::setYellowToRedColors()
