@@ -14,8 +14,8 @@ GuidedRayViz::GuidedRayViz(ref<Device> pDevice, const Properties& props) : Rende
 {
     mpProgram = Program::createGraphics(mpDevice, kShaderFile, "vsMain", "psMain");
     RasterizerState::Desc wireframeDesc;
-    wireframeDesc.setFillMode(RasterizerState::FillMode::Wireframe);
-    wireframeDesc.setCullMode(RasterizerState::CullMode::None);
+    wireframeDesc.setFillMode(RasterizerState::FillMode::Solid);
+    wireframeDesc.setCullMode(RasterizerState::CullMode::Back);
     mpRasterState = RasterizerState::create(wireframeDesc);
 
     mpGraphicsState = GraphicsState::create(mpDevice);
@@ -75,7 +75,8 @@ void GuidedRayViz::execute(RenderContext* pRenderContext, const RenderData& rend
         
         // render rays
         auto var = mpVars->getRootVar();
-        var["PerFrameCB"]["gColor"] = float4(0, 1, 0, 1);
+        var["PerFrameCB"]["gColor"] = float4(1, 1, 0, 1);
+        var["PerFrameCB"]["gShadedLines"] = mShadedLines;
 
         mpRayScene->rasterize(pRenderContext, mpGraphicsState.get(), mpVars.get(), mpRasterState, mpRasterState);
     }
@@ -83,8 +84,9 @@ void GuidedRayViz::execute(RenderContext* pRenderContext, const RenderData& rend
 
 void GuidedRayViz::renderUI(Gui::Widgets& widget)
 {
-    widget.slider("line scale", mLineLengthScale, 0.0f, 1.0f);
-    bool shouldRecomputeRays = widget.button("recompute rays");
+    widget.slider("Line length scale", mLineLengthScale, 0.0f, 1.0f);
+    widget.slider("Line width scale", mLineWidthScale, 0.0f, 1.0f);
+    bool shouldRecomputeRays = widget.button("Recompute rays");
     if (shouldRecomputeRays)
     {
         mComputeRays = true;
@@ -93,6 +95,7 @@ void GuidedRayViz::renderUI(Gui::Widgets& widget)
             generateRaysGeometry();
         }
     }
+    widget.checkbox("Shaded lines", mShadedLines);
 }
 
 void GuidedRayViz::setScene(RenderContext* pRenderContext, const ref<Scene>& pScene)
@@ -168,7 +171,7 @@ void GuidedRayViz::createLine(SceneBuilder::ProcessedMesh& mesh, GuidedRayLine r
 void GuidedRayViz::createTube(SceneBuilder::ProcessedMesh& mesh, GuidedRayLine rayLine, int& index)
 {
     int numSegments = 6;
-    float lineWidth = 0.002f;
+    float lineWidth = 0.002f * mLineWidthScale;
 
     float3 s = rayLine.pos1;
     float3 diff = rayLine.pos2 - rayLine.pos1;

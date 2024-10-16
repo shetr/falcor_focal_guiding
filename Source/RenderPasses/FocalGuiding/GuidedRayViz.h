@@ -38,9 +38,11 @@ private:
     float3 getPerpendicualrTo(float3 dir);
 
     uint mGuidedRaysSize = 10;
-    float mLineLengthScale = 0.5;
+    float mLineLengthScale = 0.25;
+    float mLineWidthScale = 0.5;
     ref<Buffer> mGuidedRays;
     bool mComputeRays = true;
+    bool mShadedLines = false;
 
     // Internal state
     ref<Scene> mpScene;
