@@ -12,6 +12,21 @@ using namespace Falcor;
 class FocalViz : public RenderPass
 {
 public:
+    FALCOR_PLUGIN_CLASS(FocalViz, "FocalViz", "Insert pass description here.");
+
+    static ref<FocalViz> create(ref<Device> pDevice, const Properties& props) { return make_ref<FocalViz>(pDevice, props); }
+
+    FocalViz(ref<Device> pDevice, const Properties& props);
+
+    virtual Properties getProperties() const override;
+    virtual RenderPassReflection reflect(const CompileData& compileData) override;
+    virtual void compile(RenderContext* pRenderContext, const CompileData& compileData) override {}
+    virtual void execute(RenderContext* pRenderContext, const RenderData& renderData) override;
+    virtual void renderUI(Gui::Widgets& widget) override;
+    virtual void setScene(RenderContext* pRenderContext, const ref<Scene>& pScene) override;
+    virtual bool onMouseEvent(const MouseEvent& mouseEvent) override { return false; }
+    virtual bool onKeyEvent(const KeyboardEvent& keyEvent) override { return false; }
+
     enum class VizColorPalette : uint32_t
     {
         YellowToRed,
@@ -32,20 +47,19 @@ public:
         }
     );
 
-    FALCOR_PLUGIN_CLASS(FocalViz, "FocalViz", "Insert pass description here.");
+    enum class DensityAccType : uint32_t
+    {
+        Max,
+        Avg
+    };
 
-    static ref<FocalViz> create(ref<Device> pDevice, const Properties& props) { return make_ref<FocalViz>(pDevice, props); }
-
-    FocalViz(ref<Device> pDevice, const Properties& props);
-
-    virtual Properties getProperties() const override;
-    virtual RenderPassReflection reflect(const CompileData& compileData) override;
-    virtual void compile(RenderContext* pRenderContext, const CompileData& compileData) override {}
-    virtual void execute(RenderContext* pRenderContext, const RenderData& renderData) override;
-    virtual void renderUI(Gui::Widgets& widget) override;
-    virtual void setScene(RenderContext* pRenderContext, const ref<Scene>& pScene) override;
-    virtual bool onMouseEvent(const MouseEvent& mouseEvent) override { return false; }
-    virtual bool onKeyEvent(const KeyboardEvent& keyEvent) override { return false; }
+    FALCOR_ENUM_INFO(
+        DensityAccType,
+        {
+            {DensityAccType::Max, "Max"},
+            {DensityAccType::Avg, "Avg"},
+        }
+    );
 
 private:
     void parseProperties(const Properties& props);
@@ -72,7 +86,9 @@ private:
     
     std::array<float3, VIZ_COLORS_COUNT> mVizColors;
     VizColorPalette mColorPalette = VizColorPalette::Viridis;
+    DensityAccType mDensityAccType = DensityAccType::Max;
     bool mBlendFromScene = true;
+    float mMinBlendAlpha = 0.5f;
     bool mNormalsViz = false;
 
     bool mOptionsChanged = false;
@@ -87,3 +103,4 @@ private:
 };
 
 FALCOR_ENUM_REGISTER(FocalViz::VizColorPalette);
+FALCOR_ENUM_REGISTER(FocalViz::DensityAccType);

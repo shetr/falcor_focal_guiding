@@ -24,6 +24,7 @@ cbuffer CB
     float gMaxDensity;
     // colors
     float3 gVizColors[VIZ_COLORS_COUNT];
+    float gMinBlendAlpha;
     bool gBlendFromScene;
     bool gNormalsViz;
 }
@@ -181,8 +182,13 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
 
         float globlaAcc = gGlobalAccumulator.Load<float>(0);
 
+#if DENSITY_ACC_TYPE_MAX
         MaxDensityAccumulator densityAcc;
-        //BoundedDensityAccumulator densityAcc = BoundedDensityAccumulator(gMinDensity, gMaxDensity);
+#elif DENSITY_ACC_TYPE_AVG
+        AvgDensityAccumulator densityAcc;
+#else
+        MaxDensityAccumulator densityAcc;
+#endif
         float3 hitDir = rayOrigin - primaryRayOrigin;
         float hitDist = length(hitDir);
         float nodeMultiplier = 1.0;
@@ -231,7 +237,7 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
                         float density = nodeMultiplier * child.accumulator / globlaAcc;
                         if (child.isLeaf() || nodesStackSize >= MAX_OCTREE_DEPTH) {
                             //densityAcc.addDensity(density / (float)gFrameCount);
-                            densityAcc.addDensity(density);
+                            densityAcc.addDensity(density, far - near);
                         } else {
                             box = childBox;
                             // push node
@@ -250,12 +256,12 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
 
         float t = densityAcc.getResult();
         t = (clamp(t, gMinDensity, gMaxDensity) - gMinDensity) / (gMaxDensity - gMinDensity);
-        //float3 densityVizColor = kMinColor * (1 - t) + kMaxColor * t;
         float3 densityVizColor = getVizColor(t);
 
         if (gBlendFromScene)
         {
-            outColor = outColor * (1 - t) + densityVizColor * t;
+            float alpha = t * (1 - gMinBlendAlpha) + gMinBlendAlpha;
+            outColor = outColor * (1 - alpha) + densityVizColor * alpha;
         }
         else
         {

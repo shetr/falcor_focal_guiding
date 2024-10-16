@@ -166,7 +166,7 @@ AABB extendBox(AABB box, uint3 axisIndices)
 interface IDensityAccumulator
 {
     [mutating]
-    void addDensity(float density);
+    void addDensity(float density, float weight);
 
     float getResult();
 }
@@ -181,7 +181,7 @@ struct MaxDensityAccumulator : IDensityAccumulator
     }
 
     [mutating]
-    void addDensity(float density)
+    void addDensity(float density, float weight)
     {
         maxDensity = max(density, maxDensity);
     }
@@ -195,52 +195,27 @@ struct MaxDensityAccumulator : IDensityAccumulator
 struct AvgDensityAccumulator : IDensityAccumulator
 {
     float densitiesSum;
-    uint densitiesCount;
+    float weightSum;
 
     __init()
     {
         densitiesSum = 0;
-        densitiesCount = 0;
+        weightSum = 0;
     }
 
     [mutating]
-    void addDensity(float density)
+    void addDensity(float density, float weight)
     {
-        densitiesSum += density;
-        densitiesCount++;
+        densitiesSum += density * weight;
+        weightSum += weight;
     }
 
     float getResult()
     {
-        if (densitiesCount > 0) {
-            return densitiesSum / (float)densitiesCount;
+        if (weightSum > 0) {
+            return densitiesSum / weightSum;
         }
         return 0;
-    }
-}
-
-struct BoundedDensityAccumulator : IDensityAccumulator
-{
-    float densitiesSum;
-    float minDensity;
-    float maxDensity;
-
-    __init(float min, float max)
-    {
-        densitiesSum = 0;
-        minDensity = min;
-        maxDensity = max;
-    }
-
-    [mutating]
-    void addDensity(float density)
-    {
-        densitiesSum += density;
-    }
-
-    float getResult()
-    {
-        return (densitiesSum - minDensity) / (maxDensity - minDensity);
     }
 }
 

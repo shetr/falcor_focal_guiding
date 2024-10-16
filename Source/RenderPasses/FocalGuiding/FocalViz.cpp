@@ -21,9 +21,10 @@ const ChannelList kInputChannels = {
 const ChannelList kOutputChannels = {
     {"color", "gOutputColor", "Output color (sum of direct and indirect)", false, ResourceFormat::RGBA32Float},
 };
-const char kMinDensity[] = "mMinDensity";
-const char kMaxDensity[] = "mMaxDensity";
+const char kMinDensity[] = "minDensity";
+const char kMaxDensity[] = "maxDensity";
 const char kBlendFromScene[] = "blendFromScene";
+const char kMinBlendAlpha[] = "minBlendAlpha";
 const char kNormalsViz[] = "normalsViz";
 } // namespace
 
@@ -45,6 +46,8 @@ void FocalViz::parseProperties(const Properties& props)
             mMinDensity = value;
         else if (key == kMaxDensity)
             mMaxDensity = value;
+        else if (key == kMinBlendAlpha)
+            mMinBlendAlpha = value;
         else
             logWarning("Unknown property '{}' in FocalGuiding properties.", key);
     }
@@ -56,6 +59,7 @@ Properties FocalViz::getProperties() const
     props[kMinDensity] = mMinDensity;
     props[kMaxDensity] = mMaxDensity;
     props[kBlendFromScene] = mBlendFromScene;
+    props[kMinBlendAlpha] = mMinBlendAlpha;
     props[kNormalsViz] = mNormalsViz;
     return props;
 }
@@ -115,6 +119,9 @@ void FocalViz::execute(RenderContext* pRenderContext, const RenderData& renderDa
     mTracer.pProgram->addDefine("MAX_NODES_SIZE", std::to_string(mMaxNodesSize));
     mTracer.pProgram->addDefine("VIZ_COLORS_COUNT", std::to_string(VIZ_COLORS_COUNT));
 
+    mTracer.pProgram->addDefine("DENSITY_ACC_TYPE_MAX", std::to_string(mDensityAccType == FocalViz::DensityAccType::Max));
+    mTracer.pProgram->addDefine("DENSITY_ACC_TYPE_AVG", std::to_string(mDensityAccType == FocalViz::DensityAccType::Avg));
+
     // For optional I/O resources, set 'is_valid_<name>' defines to inform the program of which ones it can access.
     // TODO: This should be moved to a more general mechanism using Slang.
     mTracer.pProgram->addDefines(getValidResourceDefines(kInputChannels, renderData));
@@ -140,6 +147,7 @@ void FocalViz::execute(RenderContext* pRenderContext, const RenderData& renderDa
         var["CB"]["gVizColors"][i] = mVizColors[i];
     }
     var["CB"]["gBlendFromScene"] = mBlendFromScene;
+    var["CB"]["gMinBlendAlpha"] = mMinBlendAlpha;
     var["CB"]["gNormalsViz"] = mNormalsViz;
     // renderData holds the requested resources
     // auto& pTexture = renderData.getTexture("src");
@@ -190,8 +198,12 @@ void FocalViz::renderUI(Gui::Widgets& widget)
     {
         setColors();
     }
+
+    dirty |= widget.dropdown("Density accumulator type", mDensityAccType);
     
     dirty |= widget.checkbox("Blend from scene", mBlendFromScene);
+
+    dirty |= widget.slider("Min blend alpha", mMinBlendAlpha, 0.0f, 1.0f);
 
     dirty |= widget.checkbox("Viz normals", mNormalsViz);
 
