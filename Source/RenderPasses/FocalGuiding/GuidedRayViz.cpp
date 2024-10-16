@@ -109,11 +109,33 @@ void GuidedRayViz::setScene(RenderContext* pRenderContext, const ref<Scene>& pSc
 
 bool GuidedRayViz::onMouseEvent(const MouseEvent& mouseEvent)
 {
+    if (mouseEvent.type == MouseEvent::Type::ButtonDown && mouseEvent.button == Input::MouseButton::Right)
+    {
+        if (mShiftPressed)
+        {
+            mComputeRays = true;
+            if (mGuidedRays)
+            {
+                generateRaysGeometry();
+            }
+        }
+    }
     return mpRayScene ? mpRayScene->onMouseEvent(mouseEvent) : false;
 }
 
 bool GuidedRayViz::onKeyEvent(const KeyboardEvent& keyEvent)
 {
+    if (keyEvent.key == Input::Key::LeftShift)
+    {
+        if (keyEvent.type == KeyboardEvent::Type::KeyPressed)
+        {
+            mShiftPressed = true;
+        }
+        if (keyEvent.type == KeyboardEvent::Type::KeyReleased)
+        {
+            mShiftPressed = false;
+        }
+    }
     return mpRayScene ? mpRayScene->onKeyEvent(keyEvent) : false;
 }
 

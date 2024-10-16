@@ -43,6 +43,7 @@ private:
     ref<Buffer> mGuidedRays;
     bool mComputeRays = true;
     bool mShadedLines = false;
+    bool mShiftPressed = false;
 
     // Internal state
     ref<Scene> mpScene;

@@ -297,6 +297,20 @@ void GuidedRays::setScene(RenderContext* pRenderContext, const ref<Scene>& pScen
     nodes_var["nodes"] = mNodes;
 }
 
+bool GuidedRays::onMouseEvent(const MouseEvent& mouseEvent)
+{
+    if (mouseEvent.type == MouseEvent::Type::ButtonDown && mouseEvent.button == Input::MouseButton::Right)
+    {
+        mGuidedRaysPos = mouseEvent.pos;
+    }
+    return false;
+}
+
+bool GuidedRays::onKeyEvent(const KeyboardEvent& keyEvent)
+{
+    return false;
+}
+
 void GuidedRays::prepareVars()
 {
     FALCOR_ASSERT(mpScene);
