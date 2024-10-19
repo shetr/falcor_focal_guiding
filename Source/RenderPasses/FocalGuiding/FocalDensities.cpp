@@ -301,7 +301,8 @@ void FocalDensities::printNodes()
     {
         printf("  node: %d\n", i);
         printf("    parentIndex:  %d\n", densityNodes[i].parentIndex);
-        printf("    parentOffset: %d\n", densityNodes[i].parentOffset);
+        printf("    parentOffset: %d\n", densityNodes[i].parentOffsetAndDepth & PARENT_OFFSET_BITS);
+        printf("    depth: %d\n", densityNodes[i].parentOffsetAndDepth >> PARENT_OFFSET_BIT_COUNT);
         for (int ch = 0; ch < 8; ++ch)
         {
             DensityChild child = densityNodes[i].childs[ch];
@@ -403,7 +404,7 @@ std::vector<DensityNode> FocalDensities::genUniformNodes(uint depth, bool random
                     }
                 }
                 nodes[nodes.size() - 1].parentIndex = i;
-                nodes[nodes.size() - 1].parentOffset = ch;
+                nodes[nodes.size() - 1].parentOffsetAndDepth = ch | ((d + 1) << PARENT_OFFSET_BIT_COUNT);
             }
         }
         ni += nc;

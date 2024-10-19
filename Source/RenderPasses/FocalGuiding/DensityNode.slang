@@ -23,11 +23,14 @@ struct DensityChild
     }
 }
 
+#define PARENT_OFFSET_BIT_COUNT 3
+#define PARENT_OFFSET_BITS ((1 << PARENT_OFFSET_BIT_COUNT) - 1)
+
 struct DensityNode
 {
     DensityChild childs[8];
     uint parentIndex;
-    uint parentOffset;
+    uint parentOffsetAndDepth;
 }
 
 struct DensityNodes
@@ -41,7 +44,12 @@ struct DensityNodes
 
     uint getParentNodeOffset(uint nodeIndex)
     {
-        return nodes.Load<uint>(nodeIndex * DESNITY_NODE_SIZE + DESNITY_NODE_PARENT_OFFSET_OFFSET);
+        return nodes.Load<uint>(nodeIndex * DESNITY_NODE_SIZE + DESNITY_NODE_PARENT_OFFSET_OFFSET) & PARENT_OFFSET_BITS;
+    }
+
+    uint getNodeDepth(uint nodeIndex)
+    {
+        return nodes.Load<uint>(nodeIndex * DESNITY_NODE_SIZE + DESNITY_NODE_PARENT_OFFSET_OFFSET) >> PARENT_OFFSET_BIT_COUNT;
     }
 
     void setParentNodeIndex(uint nodeIndex, uint parentNodeIndex)
@@ -49,9 +57,9 @@ struct DensityNodes
         nodes.Store(nodeIndex * DESNITY_NODE_SIZE + DESNITY_NODE_PARENT_INDEX_OFFSET, parentNodeIndex);
     }
 
-    void setParentNodeOffset(uint nodeIndex, uint childOffset)
+    void setParentNodeOffsetAndDepth(uint nodeIndex, uint childOffset, uint depth)
     {
-        nodes.Store(nodeIndex * DESNITY_NODE_SIZE + DESNITY_NODE_PARENT_OFFSET_OFFSET, childOffset);
+        nodes.Store(nodeIndex * DESNITY_NODE_SIZE + DESNITY_NODE_PARENT_OFFSET_OFFSET, childOffset | (depth << PARENT_OFFSET_BIT_COUNT));
     }
 
     bool isNodeRoot(uint nodeIndex)

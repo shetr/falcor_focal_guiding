@@ -10,68 +10,52 @@ cbuffer CB
 }
 
 [shader("compute")]
-[numthreads(1,1,1)]
+[numthreads(1,8,1)]
 void computeMain(uint3 threadId : SV_DispatchThreadID)
 {
     uint nodeIndex = threadId.x;
+    uint childIndex = threadId.y;
 
-    uint nodesSize = gNodesSize.Load<uint>(0);
-    if (gNodes.isNodeRoot(nodeIndex) || nodeIndex >= nodesSize)
+    if (gNodes.isNodeRoot(nodeIndex))
     {
         return;
     }
 
     float invGlobalAcc = 1 / gGlobalAccumulator.Load<float>(0);
 
-    for (int childIndex = 0; childIndex < 8; childIndex++)
+    if (!gNodes.isChildNodeLeaf(nodeIndex, childIndex))
     {
-        if (nodesSize >= MAX_NODES_SIZE)
-        {
-            return;
-        }
+        return;
+    }
 
-        if (!gNodes.isChildNodeLeaf(nodeIndex, childIndex))
-        {
-            continue;
-        }
+    float accumulator = gNodes.getChildAccumulator(nodeIndex, childIndex);
+    float densityTimesVolume = accumulator * invGlobalAcc;
+    if (densityTimesVolume <= gSplittingThreshold)
+    {
+        return;
+    }
 
-        float accumulator = gNodes.getChildAccumulator(nodeIndex, childIndex);
-        float densityTimesVolume = accumulator * invGlobalAcc;
-        if (densityTimesVolume <= gSplittingThreshold)
-        {
-            continue;
-        }
+    uint depth = gNodes.getNodeDepth(nodeIndex) + 1;
+    if (depth >= MAX_OCTREE_DEPTH)
+    {
+        return;
+    }
 
-        uint depth = 0;
-        uint parentOffset = childIndex;
-        uint parentIndex = nodeIndex;
-        do
+    uint newNodeIndex;
+    gNodesSize.InterlockedAdd(0, 1, newNodeIndex);
+    if (newNodeIndex < MAX_NODES_SIZE)
+    {
+        gNodes.setChildNodeIndex(nodeIndex, childIndex, newNodeIndex);
+        gNodes.setParentNodeIndex(newNodeIndex, nodeIndex);
+        gNodes.setParentNodeOffsetAndDepth(newNodeIndex, childIndex, depth);
+        for (int ch = 0; ch < 8; ch++)
         {
-            parentOffset = gNodes.getParentNodeOffset(parentIndex);
-            parentIndex = gNodes.getParentNodeIndex(parentIndex);
-            depth += 1;
-        } while (!gNodes.isNodeRoot(parentIndex));
-
-        if (depth >= MAX_OCTREE_DEPTH)
-        {
-            continue;
+            gNodes.setChildNodeIndex(newNodeIndex, ch, 0);
+            gNodes.setChildAccumulator(newNodeIndex, ch, accumulator / 8.0);
         }
-        uint newNodeIndex;
-        gNodesSize.InterlockedAdd(0, 1, newNodeIndex);
-        if (newNodeIndex < MAX_NODES_SIZE)
-        {
-            gNodes.setChildNodeIndex(nodeIndex, childIndex, newNodeIndex);
-            gNodes.setParentNodeIndex(newNodeIndex, nodeIndex);
-            gNodes.setParentNodeOffset(newNodeIndex, childIndex);
-            for (int ch = 0; ch < 8; ch++)
-            {
-                gNodes.setChildNodeIndex(newNodeIndex, ch, 0);
-                gNodes.setChildAccumulator(newNodeIndex, ch, accumulator / 8.0);
-            }
-        }
-        else
-        {
-            gNodesSize.Store(0, MAX_NODES_SIZE);
-        }
+    }
+    else
+    {
+        gNodesSize.Store(0, MAX_NODES_SIZE);
     }
 }

@@ -23,6 +23,9 @@ target_sources(FocalGuiding PRIVATE
     NodeSplitting.h
     NodeSplitting.cpp
     NodeSplitting.slang
+    NodePruning.h
+    NodePruning.cpp
+    NodePruning.slang
 )
 
 target_copy_shaders(FocalGuiding RenderPasses/FocalGuiding)
