@@ -1,6 +1,7 @@
 import DensityNode;
 
 ParameterBlock<DensityNodes> gNodes;
+RWByteAddressBuffer gGlobalAccumulator;
 RWByteAddressBuffer gNodesSize;
 
 cbuffer CB
@@ -20,6 +21,8 @@ void computeMain(uint3 threadId : SV_DispatchThreadID)
         return;
     }
 
+    float invGlobalAcc = 1 / gGlobalAccumulator.Load<float>(0);
+
     for (int childIndex = 0; childIndex < 8; childIndex++)
     {
         if (nodesSize >= MAX_NODES_SIZE)
@@ -32,19 +35,24 @@ void computeMain(uint3 threadId : SV_DispatchThreadID)
             continue;
         }
 
+        float accumulator = gNodes.getChildAccumulator(nodeIndex, childIndex);
+        float densityTimesVolume = accumulator * invGlobalAcc;
+        if (densityTimesVolume <= gSplittingThreshold)
+        {
+            continue;
+        }
+
         uint depth = 0;
         uint parentOffset = childIndex;
         uint parentIndex = nodeIndex;
-        float density = gNodes.getChildDensity(nodeIndex, childIndex);
         do
         {
             parentOffset = gNodes.getParentNodeOffset(parentIndex);
             parentIndex = gNodes.getParentNodeIndex(parentIndex);
-            density *= gNodes.getChildDensity(parentIndex, parentOffset);
             depth += 1;
         } while (!gNodes.isNodeRoot(parentIndex));
 
-        if (density <= gSplittingThreshold || depth >= MAX_OCTREE_DEPTH)
+        if (depth >= MAX_OCTREE_DEPTH)
         {
             continue;
         }
@@ -52,7 +60,6 @@ void computeMain(uint3 threadId : SV_DispatchThreadID)
         gNodesSize.InterlockedAdd(0, 1, newNodeIndex);
         if (newNodeIndex < MAX_NODES_SIZE)
         {
-            float accumulator = gNodes.getChildAccumulator(nodeIndex, childIndex);
             gNodes.setChildNodeIndex(nodeIndex, childIndex, newNodeIndex);
             gNodes.setParentNodeIndex(newNodeIndex, nodeIndex);
             gNodes.setParentNodeOffset(newNodeIndex, childIndex);
@@ -60,7 +67,6 @@ void computeMain(uint3 threadId : SV_DispatchThreadID)
             {
                 gNodes.setChildNodeIndex(newNodeIndex, ch, 0);
                 gNodes.setChildAccumulator(newNodeIndex, ch, accumulator / 8.0);
-                gNodes.setChildDensity(newNodeIndex, ch, 1.0 / 8.0);
             }
         }
         else

@@ -139,6 +139,7 @@ void FocalGuiding::execute(RenderContext* pRenderContext, const RenderData& rend
     mTracer.pProgram->addDefine("USE_ENV_BACKGROUND", mpScene->useEnvBackground() ? "1" : "0");
 
     mNodes = dict["gNodes"];
+    mGlobalAccumulator = dict["gGlobalAccumulator"];
     mNodesSize = dict["gNodesSize"];
     mMaxNodesSize = dict["gMaxNodesSize"];
     mMaxOctreeDepth = dict["gMaxOctreeDepth"];
@@ -190,6 +191,7 @@ void FocalGuiding::execute(RenderContext* pRenderContext, const RenderData& rend
     nodes_var["nodes"] = mNodes;
 
     var["gNodes"] = mpNodesBlock;
+    var["gGlobalAccumulator"] = mGlobalAccumulator;
 
     // Get dimensions of ray dispatch.
     const uint2 targetDim = renderData.getDefaultTextureDims();

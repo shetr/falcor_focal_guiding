@@ -12,6 +12,7 @@ import Rendering.Lights.LightHelpers;
 import DensityNode;
 
 ParameterBlock<DensityNodes> gNodes;
+RWByteAddressBuffer gGlobalAccumulator;
 
 cbuffer CB
 {
@@ -192,31 +193,36 @@ float3 samplePointByDensities(out float pdf, inout SampleGenerator sg)
     AABB box = AABB(gSceneBoundsMin, gSceneBoundsMax);
     pdf = 1 / box.volume();
 
+    float globalAcc = gGlobalAccumulator.Load<float>(0);
+    float parentAcc = globalAcc;
+
     uint depth = 0;
     while (depth < MAX_OCTREE_DEPTH)
     {
         float r = sampleNext1D(sg);
+        float stop = r * parentAcc;
         float acc = 0;
         uint childIndex = 0;
         DensityChild child;
         for (childIndex = 0; childIndex < 8; ++childIndex) {
             child = gNodes.getChildNode(nodeIndex, childIndex);
-            acc += child.density;
-            if (r < acc) {
+            acc += child.accumulator;
+            if (stop < acc) {
                 break;
             }
         }
         if (childIndex >= 8) {
             childIndex = uint(r * 8);
         }
-        pdf *= child.density;
         int3 axisIndices = unpackOctreeChildIndex(childIndex);
         AABB childBox = shrinkBox(box, axisIndices);
         nodeIndex = child.index;
         box = childBox;
         if (child.isLeaf()) {
+            pdf *= child.accumulator / globalAcc;
             break;
         }
+        parentAcc = child.accumulator;
         ++depth;
     }
     float3 rPos = sampleNext3D(sg);
@@ -234,13 +240,13 @@ float getDirectionPdf(float3 origin, float3 dir)
 {
     float pdf = 0;
     NodeTravRef nodesStack[MAX_OCTREE_DEPTH];
-    float parentDensities[MAX_OCTREE_DEPTH];
     uint nodesStackSize = 0;
     // push first node
     nodesStack[nodesStackSize] = NodeTravRef(0);
-    parentDensities[nodesStackSize] = 1;
     ++nodesStackSize;
     AABB box = AABB(gSceneBoundsMin, gSceneBoundsMax);
+
+    float invGlobalAcc = 1 / gGlobalAccumulator.Load<float>(0);
 
     uint failsafe = 0;
     while (nodesStackSize > 0 && failsafe < 9 * gNodesSize)
@@ -261,7 +267,6 @@ float getDirectionPdf(float3 origin, float3 dir)
         {
             uint nodeIndex = nodesStack[topIndex].node;
             uint childIndex = nodesStack[topIndex].child;
-            float parentDensity = parentDensities[topIndex];
             DensityChild child = gNodes.getChildNode(nodeIndex, childIndex);
             int3 axisIndices = unpackOctreeChildIndex(childIndex);
             AABB childBox = shrinkBox(box, axisIndices);
@@ -271,14 +276,13 @@ float getDirectionPdf(float3 origin, float3 dir)
             if (intersected) {
                 float near = length(dir * nearFar.x);
                 float far = length(dir * nearFar.y);
-                float density = parentDensity * child.density;
+                float densityTimesVolume = child.accumulator * invGlobalAcc;
                 if (child.isLeaf() || nodesStackSize >= MAX_OCTREE_DEPTH) {
-                    pdf += (pow(nearFar.y, 3) - pow(nearFar.x, 3)) * density / (3 * childBox.volume());
+                    pdf += (pow(nearFar.y, 3) - pow(nearFar.x, 3)) * densityTimesVolume / (3 * childBox.volume());
                 } else {
                     box = childBox;
                     // push node
                     nodesStack[nodesStackSize] = NodeTravRef(child.index);
-                    parentDensities[nodesStackSize] = density;
                     ++nodesStackSize;
                 }
             }

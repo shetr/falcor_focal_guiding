@@ -32,6 +32,7 @@ private:
     ref<Scene> mpScene; ///< Current scene.
     ref<SampleGenerator> mpSampleGenerator; ///< GPU sample generator.
     ref<Buffer> mNodes;
+    ref<Buffer> mGlobalAccumulator;
     ref<ParameterBlock> mpNodesBlock;
 
     uint mNodesSize = 1;

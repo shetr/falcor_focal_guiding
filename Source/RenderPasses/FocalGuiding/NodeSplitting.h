@@ -31,6 +31,7 @@ private:
     // Internal state
     ref<Scene> mpScene;                     ///< Current scene.
     ref<Buffer> mNodes;
+    ref<Buffer> mGlobalAccumulator;
     ref<ParameterBlock> mpNodesBlock;
 
     uint mNodesSize = 1;

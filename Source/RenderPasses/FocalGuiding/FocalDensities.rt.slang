@@ -245,18 +245,6 @@ void storeDensities(
                 if (near < hitDist) {
                     float length = (min(hitDist, far) - near) / rayLength;
                     nodes.addToChildAccumulator(nodeIndex, childIndex, length * contribution);
-                    float parentAcc = 1;
-                    if (nodesStackSize > 1) {
-                        uint parentNodeIndex = nodesStack[topIndex - 1].node;
-                        uint parentChildIndex = nodesStack[topIndex - 1].child - 1;
-                        parentAcc = nodes.getChildAccumulator(parentNodeIndex, parentChildIndex);
-                    } else {
-                        parentAcc = globalAccumulator.Load<float>(0);
-                    }
-                    if (parentAcc <= 0) {
-                        parentAcc = 1;
-                    }
-                    nodes.setChildDensity(nodeIndex, childIndex, nodes.getChildAccumulator(nodeIndex, childIndex) / parentAcc);
                     if (child.isLeaf() || nodesStackSize >= MAX_OCTREE_DEPTH) {
                     } else {
                         box = childBox;

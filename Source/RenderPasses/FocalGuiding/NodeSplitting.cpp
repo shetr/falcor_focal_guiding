@@ -61,6 +61,7 @@ void NodeSplitting::execute(RenderContext* pRenderContext, const RenderData& ren
         return;
     }
     mNodes = dict["gNodes"];
+    mGlobalAccumulator = dict["gGlobalAccumulator"];
     mNodesSize = dict["gNodesSize"];
     mMaxNodesSize = dict["gMaxNodesSize"];
     mMaxOctreeDepth = dict["gMaxOctreeDepth"];
@@ -80,6 +81,7 @@ void NodeSplitting::execute(RenderContext* pRenderContext, const RenderData& ren
     auto nodesVar = mpNodesBlock->getRootVar();
     nodesVar["nodes"] = mNodes;
     var["gNodes"] = mpNodesBlock;
+    var["gGlobalAccumulator"] = mGlobalAccumulator;
     var["gNodesSize"] = mNodesSizeBuffer;
 
     uint3 numGroups = uint3(mNodesSize, 1, 1);
