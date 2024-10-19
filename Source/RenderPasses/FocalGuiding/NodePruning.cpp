@@ -75,6 +75,8 @@ void NodePruning::execute(RenderContext* pRenderContext, const RenderData& rende
     var["gNodes"] = mpNodesBlock;
     var["gGlobalAccumulator"] = mGlobalAccumulator;
     var["gNodesSize"] = mNodesSizeBuffer;
+    var["gMaxDensities"] = mMaxDensitiesBuffer;
+    var["gAvgDensities"] = mAvgDensitiesBuffer;
 
 
     if (mPassCount == mRunInFrame)
@@ -118,4 +120,7 @@ void NodePruning::prepareVars()
     ResourceBindFlags bindFlags = ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess;
     MemoryType memoryType = MemoryType::DeviceLocal;
     mNodesSizeBuffer = mpDevice->createBuffer(1 * sizeof(float), bindFlags, memoryType, &mNodesSize);
+
+    mMaxDensitiesBuffer = mpDevice->createBuffer(mMaxNodesSize * sizeof(float), bindFlags, memoryType, nullptr);
+    mAvgDensitiesBuffer = mpDevice->createBuffer(mMaxNodesSize * sizeof(float), bindFlags, memoryType, nullptr);
 }

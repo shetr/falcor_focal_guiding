@@ -37,6 +37,8 @@ private:
     uint mNodesSize = 1;
     uint mMaxNodesSize = 1;
     ref<Buffer> mNodesSizeBuffer;
+    ref<Buffer> mMaxDensitiesBuffer;
+    ref<Buffer> mAvgDensitiesBuffer;
     uint mMaxOctreeDepth = 3;
 
     uint mRunInFrame = 6;
