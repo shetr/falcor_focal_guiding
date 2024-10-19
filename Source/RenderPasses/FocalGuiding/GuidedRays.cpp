@@ -136,6 +136,7 @@ void GuidedRays::execute(RenderContext* pRenderContext, const RenderData& render
 
     dict["gGuidedRaysSize"] = mGuidedRaysSize;
     dict["gGuidedRays"] = mGuidedRays;
+    dict["gRaysRecomputed"] = false;
 
     if (dict.keyExists("gComputeRays"))
     {
@@ -198,8 +199,7 @@ void GuidedRays::execute(RenderContext* pRenderContext, const RenderData& render
     {
         // Spawn the rays.
         mpScene->raytrace(pRenderContext, mTracer.pProgram.get(), mTracer.pVars, uint3(targetDim, 1));
-        mComputeRays = false;
-        dict["gComputeRays"] = mComputeRays;
+        dict["gRaysRecomputed"] = true;
     }
 
     mFrameCount++;

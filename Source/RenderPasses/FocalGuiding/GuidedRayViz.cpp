@@ -46,11 +46,18 @@ void GuidedRayViz::execute(RenderContext* pRenderContext, const RenderData& rend
     Dictionary& dict = renderData.getDictionary();
     mGuidedRaysSize = dict["gGuidedRaysSize"];
     mGuidedRays = dict["gGuidedRays"];
-    dict["gComputeRays"] = mComputeRays;
+    bool raysRecomputed = dict["gRaysRecomputed"];
     
     //if ((mComputeRays || !mpRayScene) && mGuidedRays)
     //{
     //}
+
+    if (raysRecomputed)
+    {
+        generateRaysGeometry();
+        mComputeRays = false;
+    }
+    dict["gComputeRays"] = mComputeRays;
 
     auto pTargetFbo = Fbo::create(mpDevice, {renderData.getTexture("output")});
     const float4 clearColor(0, 0, 0, 1);
@@ -75,7 +82,7 @@ void GuidedRayViz::execute(RenderContext* pRenderContext, const RenderData& rend
         
         // render rays
         auto var = mpVars->getRootVar();
-        var["PerFrameCB"]["gColor"] = float4(1, 1, 0, 1);
+        var["PerFrameCB"]["gColor"] = mLinesColor;
         var["PerFrameCB"]["gShadedLines"] = mShadedLines;
 
         mpRayScene->rasterize(pRenderContext, mpGraphicsState.get(), mpVars.get(), mpRasterState, mpRasterState);
@@ -90,11 +97,8 @@ void GuidedRayViz::renderUI(Gui::Widgets& widget)
     if (shouldRecomputeRays)
     {
         mComputeRays = true;
-        if (mGuidedRays)
-        {
-            generateRaysGeometry();
-        }
     }
+    widget.rgbaColor("Lines color", mLinesColor);
     widget.checkbox("Shaded lines", mShadedLines);
 }
 
@@ -114,10 +118,6 @@ bool GuidedRayViz::onMouseEvent(const MouseEvent& mouseEvent)
         if (mShiftPressed)
         {
             mComputeRays = true;
-            if (mGuidedRays)
-            {
-                generateRaysGeometry();
-            }
         }
     }
     return mpRayScene ? mpRayScene->onMouseEvent(mouseEvent) : false;
