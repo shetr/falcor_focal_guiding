@@ -85,7 +85,7 @@ private:
     float mMaxDensity = 1.0f;
     
     std::array<float3, VIZ_COLORS_COUNT> mVizColors;
-    VizColorPalette mColorPalette = VizColorPalette::Viridis;
+    VizColorPalette mColorPalette = VizColorPalette::Inferno;
     DensityAccType mDensityAccType = DensityAccType::Max;
     bool mBlendFromScene = true;
     float mMinBlendAlpha = 0.5f;

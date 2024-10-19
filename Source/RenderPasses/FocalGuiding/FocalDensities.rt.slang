@@ -299,17 +299,17 @@ void handleHit(const HitInfo hit, inout ScatterRayData rayData)
 
     // Compute ray origin for new rays spawned from the hit.
     float3 nextRayOrigin = sd.computeRayOrigin();
+    rayData.origin = nextRayOrigin;
 
     // Check whether to terminate based on max depth.
     if (rayData.pathLength >= kMaxBounces)
     {
-        rayData.origin = nextRayOrigin;
         rayData.terminated = true;
         return;
     }
 
-    float contribution = dot(float3(0.299, 0.587, 0.114), rayData.radiance);
-    storeDensities(rayData.origin, rayData.direction, nextRayOrigin, contribution, gNodes, gNodesSize, gGlobalAccumulator);
+    //float contribution = dot(float3(0.299, 0.587, 0.114), rayData.radiance);
+    //storeDensities(rayData.origin, rayData.direction, nextRayOrigin, contribution, gNodes, gNodesSize, gGlobalAccumulator);
 
     // Generate scatter ray for the next path segment.
     // The raygen shader will continue the path based on the returned payload.
