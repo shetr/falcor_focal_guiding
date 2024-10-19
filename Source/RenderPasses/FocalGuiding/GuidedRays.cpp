@@ -137,6 +137,7 @@ void GuidedRays::execute(RenderContext* pRenderContext, const RenderData& render
     dict["gGuidedRaysSize"] = mGuidedRaysSize;
     dict["gGuidedRays"] = mGuidedRays;
     dict["gRaysRecomputed"] = false;
+    dict["gLinesPathLenght"] = mLinesPathLenght;
 
     if (dict.keyExists("gComputeRays"))
     {

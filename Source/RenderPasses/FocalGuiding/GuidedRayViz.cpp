@@ -47,6 +47,7 @@ void GuidedRayViz::execute(RenderContext* pRenderContext, const RenderData& rend
     mGuidedRaysSize = dict["gGuidedRaysSize"];
     mGuidedRays = dict["gGuidedRays"];
     bool raysRecomputed = dict["gRaysRecomputed"];
+    uint linesPathLenght = dict["gLinesPathLenght"];
     
     //if ((mComputeRays || !mpRayScene) && mGuidedRays)
     //{
@@ -54,7 +55,7 @@ void GuidedRayViz::execute(RenderContext* pRenderContext, const RenderData& rend
 
     if (raysRecomputed)
     {
-        generateRaysGeometry();
+        generateRaysGeometry(linesPathLenght);
         mComputeRays = false;
     }
     dict["gComputeRays"] = mComputeRays;
@@ -143,7 +144,7 @@ void GuidedRayViz::prepareVars()
 {
 }
 
-void GuidedRayViz::generateRaysGeometry()
+void GuidedRayViz::generateRaysGeometry(uint linesPathLenght)
 {
     std::vector<GuidedRayLine> rayNodes = mGuidedRays->getElements<GuidedRayLine>(0, mGuidedRaysSize);
 
@@ -159,7 +160,7 @@ void GuidedRayViz::generateRaysGeometry()
     {
         GuidedRayLine rayLine = rayNodes[i];
         //createLine(mesh, rayLine, index);
-        createTube(mesh, rayLine, index);
+        createTube(mesh, rayLine, index, linesPathLenght == 1);
     }
 
     auto meshId = sceneBuilder.addProcessedMesh(mesh);
@@ -190,14 +191,15 @@ void GuidedRayViz::createLine(SceneBuilder::ProcessedMesh& mesh, GuidedRayLine r
     mesh.indexCount += 2;
 }
 
-void GuidedRayViz::createTube(SceneBuilder::ProcessedMesh& mesh, GuidedRayLine rayLine, int& index)
+void GuidedRayViz::createTube(SceneBuilder::ProcessedMesh& mesh, GuidedRayLine rayLine, int& index, bool scaleLength)
 {
     int numSegments = 6;
     float lineWidth = 0.002f * mLineWidthScale;
+    float lenghtScale = scaleLength ? mLineLengthScale : 1.0;
 
     float3 s = rayLine.pos1;
     float3 diff = rayLine.pos2 - rayLine.pos1;
-    float lineLenght = length(diff) * mLineLengthScale;
+    float lineLenght = length(diff) * lenghtScale;
     float3 dir = normalize(diff);
     float3 uDir = getPerpendicualrTo(dir);
     float3 vDir = cross(dir, uDir);

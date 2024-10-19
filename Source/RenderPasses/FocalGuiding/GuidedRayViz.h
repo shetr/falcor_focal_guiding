@@ -27,9 +27,9 @@ public:
 
 private:
     void prepareVars();
-    void generateRaysGeometry();
+    void generateRaysGeometry(uint linesPathLenght);
     void createLine(SceneBuilder::ProcessedMesh& mesh, GuidedRayLine rayLine, int& index);
-    void createTube(SceneBuilder::ProcessedMesh& mesh, GuidedRayLine rayLine, int& index);
+    void createTube(SceneBuilder::ProcessedMesh& mesh, GuidedRayLine rayLine, int& index, bool scaleLength);
     void createQuad(
         SceneBuilder::ProcessedMesh& mesh,
         int& index,
