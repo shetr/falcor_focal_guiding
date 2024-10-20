@@ -281,7 +281,9 @@ void storeDensities(
         float far = length(rayDir * nearFar.y);
         if (near < hitDist) {
             float lengthWeight = (min(hitDist, far) - near) / rayLength;
-            float narrowWeight = 1.0;
+            float densityTimesVolume = 1.0;
+            float segment = (pow(nearFar.y, 3) - pow(nearFar.x, 3)) / (3 * box.volume());
+            float narrowWeight = densityTimesVolume * segment / guidePdf;
             float weight = useNarrowing * narrowWeight + (1 - useNarrowing) * lengthWeight;
             outGlobalAccumulator.InterlockedAddF32(0, weight * contribution);
         }
