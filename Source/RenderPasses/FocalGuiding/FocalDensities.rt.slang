@@ -18,6 +18,7 @@ RWByteAddressBuffer gGlobalAccumulator;
 cbuffer CB
 {
     uint gNodesSize;
+    float gUseNarrowing;
     float3 gSceneBoundsMin;
     float3 gSceneBoundsMax;
     uint gFrameCount;    // Frame count since scene was loaded.
@@ -38,7 +39,7 @@ static const uint kMaxOctreeDepth = MAX_OCTREE_DEPTH;
 static const float3 kDefaultBackgroundColor = float3(0, 0, 0);
 static const float kRayTMax = FLT_MAX;
 
-/** Payload for scatter ray (up to 72B).
+/** Payload for scatter ray (up to 76B).
  */
 struct ScatterRayData
 {
@@ -48,7 +49,7 @@ struct ScatterRayData
     uint pathLength;  ///< Path length in number of path segments (0 at origin, 1 at first secondary hit, etc.). Max 2^31.
     float3 origin;    ///< Next path segment origin.
     float3 direction; ///< Next path segment direction.
-    //float pdf;
+    float pdf;
 
     SampleGenerator sg; ///< Per-ray state for the sample generator (up to 16B).
 
@@ -63,7 +64,7 @@ struct ScatterRayData
         this.origin = float3(0, 0, 0);
         this.direction = float3(0, 0, 0);
         this.sg = sg;
-        // this.pdf = 0.0;
+        this.pdf = 0.0;
     }
 };
 
@@ -175,7 +176,7 @@ bool generateScatterRay(const ShadingData sd, const IMaterialInstance mi, bool i
         }
         rayData.direction = bsdfSample.wo;
         rayData.thp = bsdfSample.weight;
-        //rayData.pdf = bsdfSample.pdf;
+        rayData.pdf = bsdfSample.pdf;
         return any(rayData.thp > 0.f);
     }
 
@@ -187,11 +188,17 @@ void storeDensities(
     float3 rayDir,
     float3 hitPos,
     float contribution,
+    float pdf,
+    float useNarrowing,
     ParameterBlock<DensityNodes> nodes,
     uint nodesSize,
     RWByteAddressBuffer globalAccumulator
 ) {
-    float maxDensity = 0.0;
+    if (pdf <= 0 || contribution <= 0)
+    {
+        return;
+    }
+
     float3 hitDir = hitPos - rayOrigin;
     float hitDist = length(hitDir);
     float rayLength = length(rayDir);
@@ -210,8 +217,13 @@ void storeDensities(
         float near = length(rayDir * nearFar.x);
         float far = length(rayDir * nearFar.y);
         if (near < hitDist) {
-            float length = (min(hitDist, far) - near) / rayLength;
-            globalAccumulator.InterlockedAddF32(0, length * contribution);
+            float lengthWeight = (min(hitDist, far) - near) / rayLength;
+            float volume = box.volume();
+            float density = 1 / volume;
+            float segment = (pow(nearFar.y, 3) - pow(nearFar.x, 3)) / (3 * volume);
+            float narrowWeight = density * segment / pdf;
+            float weight = useNarrowing * narrowWeight + (1 - useNarrowing) * lengthWeight;
+            globalAccumulator.InterlockedAddF32(0, weight * contribution);
         }
     }
 
@@ -243,8 +255,16 @@ void storeDensities(
                 float near = length(rayDir * nearFar.x);
                 float far = length(rayDir * nearFar.y);
                 if (near < hitDist) {
-                    float length = (min(hitDist, far) - near) / rayLength;
-                    nodes.addToChildAccumulator(nodeIndex, childIndex, length * contribution);
+                    float lengthWeight = (min(hitDist, far) - near) / rayLength;
+                    float volume = childBox.volume();
+                    float densityTimesVolume = gNodes.getChildAccumulator(nodeIndex, childIndex) / globalAccumulator.Load<float>(0);
+                    float density = densityTimesVolume / volume;
+                    float segment = (pow(nearFar.y, 3) - pow(nearFar.x, 3)) / (3 * volume);
+                    float narrowWeight = density * segment / pdf;
+                    float weight = useNarrowing * narrowWeight + (1 - useNarrowing) * lengthWeight;
+                    nodes.addToChildAccumulator(nodeIndex, childIndex, weight * contribution);
+                    // just for debug
+                    nodes.setChildDensity(nodeIndex, childIndex, narrowWeight);
                     if (child.isLeaf() || nodesStackSize >= MAX_OCTREE_DEPTH) {
                     } else {
                         box = childBox;
@@ -353,6 +373,7 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
 
         float3 origins[MAX_BOUNCES + 2];
         float contributions[MAX_BOUNCES + 1];
+        float pdfs[MAX_BOUNCES + 1];
 
         // Follow path into the scene and compute its total contribution.
         int depth = 0;
@@ -364,6 +385,7 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
             traceScatterRay(rayData);
 
             contributions[depth] = dot(float3(0.299, 0.587, 0.114), rayData.radiance);
+            pdfs[depth] = rayData.pdf;
         }
         int depthCount = depth;
         origins[depthCount] = rayData.origin;
@@ -377,7 +399,7 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
             float3 origin = origins[depth];
             float3 hitPos = origins[depth + 1];
             float3 dir = normalizeSafe(hitPos - origin);
-            storeDensities(origin, dir, hitPos, contributions[depth], gNodes, gNodesSize, gGlobalAccumulator);
+            storeDensities(origin, dir, hitPos, contributions[depth], pdfs[depth], gUseNarrowing, gNodes, gNodesSize, gGlobalAccumulator);
         }
 
         // Store contribution from scatter ray.

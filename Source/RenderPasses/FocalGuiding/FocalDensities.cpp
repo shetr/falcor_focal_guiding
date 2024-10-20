@@ -8,7 +8,7 @@ const char kShaderFile[] = "RenderPasses/FocalGuiding/FocalDensities.rt.slang";
 
 // Ray tracing settings that affect the traversal stack size.
 // These should be set as small as possible.
-const uint32_t kMaxPayloadSizeBytes = 72u;
+const uint32_t kMaxPayloadSizeBytes = 76u;
 const uint32_t kMaxRecursionDepth = 2u;
 
 const char kInputViewDir[] = "viewW";
@@ -24,6 +24,8 @@ const ChannelList kOutputChannels = {
 
 const char kMaxPassCount[] = "maxPasses";
 const char kLimitedPasses[] = "limitedPasses";
+const char kUseNarrowing[] = "useNarrowing";
+const char kNarrowFromPass[] = "narrowFromPass";
 const char kMaxNodesSize[] = "maxNodesSize";
 const char kInitOctreeDepth[] = "initOctreeDepth";
 const char kMaxOctreeDepth[] = "maxOctreeDepth";
@@ -38,6 +40,10 @@ FocalDensities::FocalDensities(ref<Device> pDevice, const Properties& props)
             mMaxPassCount = value;
         else if (key == kLimitedPasses)
             mLimitedPasses = value;
+        else if (key == kUseNarrowing)
+            mUseNarrowing = value;
+        else if (key == kNarrowFromPass)
+            mNarrowFromPass = value;
         else if (key == kMaxNodesSize)
             mMaxNodesSize = value;
         else if (key == kInitOctreeDepth)
@@ -57,6 +63,11 @@ Properties FocalDensities::getProperties() const
     Properties props;
     props[kMaxPassCount] = mMaxPassCount;
     props[kLimitedPasses] = mLimitedPasses;
+    props[kUseNarrowing] = mUseNarrowing;
+    props[kNarrowFromPass] = mNarrowFromPass;
+    props[kMaxNodesSize] = mMaxNodesSize;
+    props[kInitOctreeDepth] = mInitOctreeDepth;
+    props[kMaxOctreeDepth] = mMaxOctreeDepth;
     return props;
 }
 
@@ -121,6 +132,7 @@ void FocalDensities::execute(RenderContext* pRenderContext, const RenderData& re
     // Set constants.
     auto var = mTracer.pVars->getRootVar();
     var["CB"]["gNodesSize"] = mNodesSize;
+    var["CB"]["gUseNarrowing"] = (mUseNarrowing && mNarrowFromPass >= mPassCount) ? 1.0f : 0.0f;
     var["CB"]["gSceneBoundsMin"] = mpScene->getSceneBounds().minPoint;
     var["CB"]["gSceneBoundsMax"] = mpScene->getSceneBounds().maxPoint;
 
@@ -193,6 +205,8 @@ void FocalDensities::renderUI(Gui::Widgets& widget)
     }
     widget.checkbox("limited passes", mLimitedPasses);
     widget.slider("max passes", mMaxPassCount, 0u, 50u);
+    widget.checkbox("use narrowing", mUseNarrowing);
+    widget.slider("narrow from pass", mNarrowFromPass, 0u, 50u);
 }
 
 void FocalDensities::setScene(RenderContext* pRenderContext, const ref<Scene>& pScene)
