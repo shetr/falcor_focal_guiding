@@ -81,9 +81,13 @@ void NodePruning::execute(RenderContext* pRenderContext, const RenderData& rende
 
     if (mPassCount == mRunInFrame)
     {
-        uint3 numGroups = uint3(mNodesSize, 1, 1);
-        mpState->setProgram(mpProgram);
-        pRenderContext->dispatch(mpState.get(), mpVars.get(), numGroups);
+        for (uint depth = mMaxOctreeDepth; depth > 0; depth--)
+        {
+            var["CB"]["gPruneDepth"] = depth;
+            uint3 numGroups = uint3(mNodesSize, 1, 1);
+            mpState->setProgram(mpProgram);
+            pRenderContext->dispatch(mpState.get(), mpVars.get(), numGroups);
+        }
 
         mNodesSize = mNodesSizeBuffer->getElement<uint>(0);
         dict["gNodesSize"] = mNodesSize;

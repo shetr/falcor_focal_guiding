@@ -34,8 +34,8 @@ def render_graph_FocalGuidingSplit():
     g.addEdge("VBufferViz.vbuffer", "FocalViz.vbuffer")
     g.addEdge("VBufferViz.viewW", "FocalViz.viewW")
     # outputs
-    g.markOutput("ToneMapper.dst")
     g.markOutput("FocalViz.color")
+    g.markOutput("ToneMapper.dst")
     return g
 
 FocalGuidingSplit = render_graph_FocalGuidingSplit()

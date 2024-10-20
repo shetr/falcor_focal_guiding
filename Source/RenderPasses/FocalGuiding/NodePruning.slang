@@ -7,6 +7,11 @@ RWByteAddressBuffer gNodesSize;
 RWByteAddressBuffer gMaxDensities;
 RWByteAddressBuffer gAvgDensities;
 
+cbuffer CB
+{
+    uint gPruneDepth;
+}
+
 [shader("compute")]
 [numthreads(1,1,1)]
 void computeMain(uint3 threadId : SV_DispatchThreadID)
@@ -15,6 +20,11 @@ void computeMain(uint3 threadId : SV_DispatchThreadID)
 
     float invGlobalAcc = 1 / gGlobalAccumulator.Load<float>(0);
     uint nodeDepth = gNodes.getNodeDepth(nodeIndex) + 1;
+
+    if (nodeDepth != gPruneDepth)
+    {
+        return;
+    }
 
     float invVolume = 1.0;
     for (uint depth = 0; depth <= MAX_OCTREE_DEPTH; depth++)
@@ -66,6 +76,5 @@ void computeMain(uint3 threadId : SV_DispatchThreadID)
             }
         }
         invVolume *= (1.0 / 8.0);
-        AllMemoryBarrier();
     }
 }
