@@ -51,8 +51,8 @@ private:
 
     bool mPause = false;
     bool mLimitedPasses = true;
-    bool mUseNarrowing = false;
-    uint mNarrowFromPass = 4;
+    bool mUseNarrowing = true;
+    uint mNarrowFromPass = 2;
     uint mMaxPassCount = 5;
     // TODO: make it either global for other passes, or with separate ui setting here
     float mGuidedRayProb = 0.5f;

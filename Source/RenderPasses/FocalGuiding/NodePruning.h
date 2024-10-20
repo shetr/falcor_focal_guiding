@@ -41,6 +41,7 @@ private:
     ref<Buffer> mAvgDensitiesBuffer;
     uint mMaxOctreeDepth = 3;
 
+    bool mUsePruning = true;
     uint mRunInFrame = 6;
 
     uint mPassCount = 0;

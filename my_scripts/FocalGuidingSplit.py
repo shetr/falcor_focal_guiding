@@ -14,7 +14,7 @@ def render_graph_FocalGuidingSplit():
     g.addPass(FocalDensities, "FocalDensities")
     NodeSplitting = createPass("NodeSplitting", {'maxPasses': 5, 'limitedPasses': True})
     g.addPass(NodeSplitting, "NodeSplitting")
-    NodePruning = createPass("NodePruning", {'runInFrame': 6})
+    NodePruning = createPass("NodePruning", {'usePruning': True, 'runInFrame': 6})
     g.addPass(NodePruning, "NodePruning")
     g.addEdge("VBufferRT.vbuffer", "FocalDensities.vbuffer")
     g.addEdge("VBufferRT.viewW", "FocalDensities.viewW")

@@ -335,13 +335,12 @@ bool generateScatterRay(const ShadingData sd, const IMaterialInstance mi, bool i
     return false;
 }
 
-void storeDensities(
+void storeDensitiesNoNarrowing(
     float3 rayOrigin,
     float3 rayDir,
     float3 hitPos,
     float contribution,
     float guidePdf,
-    float useNarrowing,
     uint nodesSize,
     ParameterBlock<DensityNodes> nodes,
     RWByteAddressBuffer globalAccumulator,
@@ -373,11 +372,7 @@ void storeDensities(
         float far = length(rayDir * nearFar.y);
         if (near < hitDist) {
             float lengthWeight = (min(hitDist, far) - near) / rayLength;
-            float densityTimesVolume = 1.0;
-            float segment = (pow(nearFar.y, 3) - pow(nearFar.x, 3)) / (3 * box.volume());
-            float narrowWeight = densityTimesVolume * segment / guidePdf;
-            float weight = useNarrowing * narrowWeight + (1 - useNarrowing) * lengthWeight;
-            outGlobalAccumulator.InterlockedAddF32(0, weight * contribution);
+            outGlobalAccumulator.InterlockedAddF32(0, lengthWeight * contribution);
         }
     }
 
@@ -410,11 +405,7 @@ void storeDensities(
                 float far = length(rayDir * nearFar.y);
                 if (near < hitDist) {
                     float lengthWeight = (min(hitDist, far) - near) / rayLength;
-                    float densityTimesVolume = child.accumulator * invGlobalAccumulator;
-                    float segment = (pow(nearFar.y, 3) - pow(nearFar.x, 3)) / (3 * childBox.volume());
-                    float narrowWeight = densityTimesVolume * segment / guidePdf;
-                    float weight = useNarrowing * narrowWeight + (1 - useNarrowing) * lengthWeight;
-                    outNodes.addToChildAccumulator(nodeIndex, childIndex, weight * contribution);
+                    outNodes.addToChildAccumulator(nodeIndex, childIndex, lengthWeight * contribution);
                     // just for debug
                     outNodes.setChildDensity(nodeIndex, childIndex, guidePdf);
                     if (child.isLeaf() || nodesStackSize >= MAX_OCTREE_DEPTH) {
@@ -432,6 +423,164 @@ void storeDensities(
         ++failsafe;
     }
 
+}
+
+void storeDensitiesWithNarrowing(
+    float3 rayOrigin,
+    float3 rayDir,
+    float3 hitPos,
+    float contribution,
+    float guidePdf,
+    uint nodesSize,
+    ParameterBlock<DensityNodes> nodes,
+    RWByteAddressBuffer globalAccumulator,
+    ParameterBlock<DensityNodes> outNodes,
+    RWByteAddressBuffer outGlobalAccumulator
+) {
+    if (guidePdf <= 0 || contribution <= 0)
+    {
+        return;
+    }
+
+    float3 hitDir = hitPos - rayOrigin;
+    float hitDist = length(hitDir);
+    float rayLength = length(rayDir);
+    float invGlobalAccumulator = 1 / globalAccumulator.Load<float>(0);
+
+    NodeTravRef nodesStack[MAX_OCTREE_DEPTH];
+    uint nodesStackSize = 0;
+    // push first node
+    nodesStack[nodesStackSize] = NodeTravRef(0);
+    ++nodesStackSize;
+    AABB box = AABB(gSceneBoundsMin, gSceneBoundsMax);
+    uint failsafe = 0;
+
+    float weightsSum = 0.0;
+    while (nodesStackSize > 0 && failsafe < 9 * nodesSize)
+    {
+        uint topIndex = nodesStackSize - 1;
+        if (nodesStack[topIndex].child >= 8) {
+            // pop node
+            --nodesStackSize;
+            // correct the box
+            if (nodesStackSize > 0) {
+                topIndex = nodesStackSize - 1;
+                uint currChildIndex = nodesStack[topIndex].child - 1;
+                int3 axisIndices = unpackOctreeChildIndex(currChildIndex);
+                box = extendBox(box, axisIndices);
+            }
+        }
+        else
+        {
+            uint nodeIndex = nodesStack[topIndex].node;
+            uint childIndex = nodesStack[topIndex].child;
+            DensityChild child = nodes.getChildNode(nodeIndex, childIndex);
+            int3 axisIndices = unpackOctreeChildIndex(childIndex);
+            AABB childBox = shrinkBox(box, axisIndices);
+
+            float2 nearFar;
+            bool intersected = intersectRayAABB(rayOrigin, rayDir, childBox.minPoint, childBox.maxPoint, nearFar);
+            if (intersected) {
+                float near = length(rayDir * nearFar.x);
+                float far = length(rayDir * nearFar.y);
+                if (near < hitDist) {
+                    if (child.isLeaf() || nodesStackSize >= MAX_OCTREE_DEPTH) {
+                        float lengthWeight = (min(hitDist, far) - near) / rayLength;
+                        float densityTimesVolume = child.accumulator * invGlobalAccumulator / childBox.volume();
+                        weightsSum += lengthWeight * densityTimesVolume;
+                    } else {
+                        box = childBox;
+                        // push node
+                        nodesStack[nodesStackSize] = NodeTravRef(child.index);
+                        ++nodesStackSize;
+                    }
+                }
+            }
+
+            ++nodesStack[topIndex].child;
+        }
+        ++failsafe;
+    }
+
+    float weightStack[MAX_OCTREE_DEPTH];
+    for (int i = 0; i < MAX_OCTREE_DEPTH; i++)
+    {
+        weightStack[i] = 0;
+    }
+    nodesStackSize = 0;
+    // push first node
+    nodesStack[nodesStackSize] = NodeTravRef(0);
+    ++nodesStackSize;
+    box = AABB(gSceneBoundsMin, gSceneBoundsMax);
+    failsafe = 0;
+
+    float2 nearFar;
+    bool intersected = intersectRayAABB(rayOrigin, rayDir, box.minPoint, box.maxPoint, nearFar);
+    if (intersected) {
+        float near = length(rayDir * nearFar.x);
+        float far = length(rayDir * nearFar.y);
+        if (near < hitDist) {
+            outGlobalAccumulator.InterlockedAddF32(0, contribution);
+        }
+    }
+
+    while (nodesStackSize > 0 && failsafe < 9 * nodesSize)
+    {
+        uint topIndex = nodesStackSize - 1;
+        if (nodesStack[topIndex].child >= 8) {
+            float weight = weightStack[topIndex];
+            // pop node
+            --nodesStackSize;
+            // correct the box
+            if (nodesStackSize > 0) {
+                topIndex = nodesStackSize - 1;
+                uint currChildIndex = nodesStack[topIndex].child - 1;
+                int3 axisIndices = unpackOctreeChildIndex(currChildIndex);
+                AABB childBox = box;
+                box = extendBox(box, axisIndices);
+
+                uint nodeIndex = nodesStack[topIndex].node;
+                weightStack[topIndex] += weight;
+                outNodes.addToChildAccumulator(nodeIndex, currChildIndex, weight * contribution / weightsSum);
+                outNodes.setChildDensity(nodeIndex, currChildIndex, weight);
+            }
+        }
+        else
+        {
+            uint nodeIndex = nodesStack[topIndex].node;
+            uint childIndex = nodesStack[topIndex].child;
+            DensityChild child = nodes.getChildNode(nodeIndex, childIndex);
+            int3 axisIndices = unpackOctreeChildIndex(childIndex);
+            AABB childBox = shrinkBox(box, axisIndices);
+
+            float2 nearFar;
+            bool intersected = intersectRayAABB(rayOrigin, rayDir, childBox.minPoint, childBox.maxPoint, nearFar);
+            if (intersected) {
+                float near = length(rayDir * nearFar.x);
+                float far = length(rayDir * nearFar.y);
+                if (near < hitDist) {
+                    if (child.isLeaf() || nodesStackSize >= MAX_OCTREE_DEPTH) {
+                        float lengthWeight = (min(hitDist, far) - near) / rayLength;
+                        float densityTimesVolume = child.accumulator * invGlobalAccumulator / childBox.volume();
+                        float weight = lengthWeight * densityTimesVolume;
+                        outNodes.addToChildAccumulator(nodeIndex, childIndex, weight * contribution / weightsSum);
+                        weightStack[topIndex] += weight;
+                        // just for debug
+                        outNodes.setChildDensity(nodeIndex, childIndex, weight);
+                    } else {
+                        box = childBox;
+                        // push node
+                        nodesStack[nodesStackSize] = NodeTravRef(child.index);
+                        weightStack[nodesStackSize] = 0;
+                        ++nodesStackSize;
+                    }
+                }
+            }
+
+            ++nodesStack[topIndex].child;
+        }
+        ++failsafe;
+    }
 }
 
 /** Process a hit.
@@ -561,7 +710,15 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
             float3 origin = origins[depth];
             float3 hitPos = origins[depth + 1];
             float3 dir = normalizeSafe(hitPos - origin);
-            storeDensities(origin, dir, hitPos, contributions[depth], pdfs[depth], gUseNarrowing, gNodesSize, gNodes, gGlobalAccumulator, gOutNodes, gOutGlobalAccumulator);
+            if (gUseNarrowing == 0)
+            {
+                storeDensitiesNoNarrowing( origin, dir, hitPos, contributions[depth], pdfs[depth], gNodesSize, gNodes, gGlobalAccumulator, gOutNodes, gOutGlobalAccumulator );
+            }
+            else
+            {
+                storeDensitiesWithNarrowing( origin, dir, hitPos, contributions[depth], pdfs[depth], gNodesSize, gNodes, gGlobalAccumulator, gOutNodes, gOutGlobalAccumulator );
+
+            }
         }
 
         // Store contribution from scatter ray.

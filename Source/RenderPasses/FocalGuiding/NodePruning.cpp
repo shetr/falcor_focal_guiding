@@ -7,6 +7,7 @@ namespace
 const char kShaderFile[] = "RenderPasses/FocalGuiding/NodePruning.slang";
 
 const char kRunInFrame[] = "runInFrame";
+const char kUsePruning[] = "usePruning";
 } // namespace
 
 NodePruning::NodePruning(ref<Device> pDevice, const Properties& props) : RenderPass(pDevice)
@@ -15,6 +16,8 @@ NodePruning::NodePruning(ref<Device> pDevice, const Properties& props) : RenderP
     {
         if (key == kRunInFrame)
             mRunInFrame = value;
+        else if (key == kUsePruning)
+            mUsePruning = value;
         else
             logWarning("Unknown property '{}' in NodePruning properties.", key);
     }
@@ -27,6 +30,7 @@ Properties NodePruning::getProperties() const
 {
     Properties props;
     props[kRunInFrame] = mRunInFrame;
+    props[kUsePruning] = mUsePruning;
     return props;
 }
 
@@ -79,7 +83,7 @@ void NodePruning::execute(RenderContext* pRenderContext, const RenderData& rende
     var["gAvgDensities"] = mAvgDensitiesBuffer;
 
 
-    if (mPassCount == mRunInFrame)
+    if (mPassCount == mRunInFrame && mUsePruning)
     {
         for (uint depth = mMaxOctreeDepth; depth > 0; depth--)
         {
