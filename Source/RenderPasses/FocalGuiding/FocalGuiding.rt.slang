@@ -512,17 +512,6 @@ void handleHit(const HitInfo hit, inout ScatterRayData rayData)
     }
 #endif
 
-    // spatial ray sampling
-    //if (kComputeDirect || rayData.pathLength > 0)
-    //{
-    //    SpatialRayData spatialRay = generateSpatialRay(sd, mi, rayOrigin, rayData.sg, rayData.thp);
-    //    traceSpatialRay(spatialRay);
-    //    bool v = traceShadowRay(rayOrigin, spatialRay.direction, length(spatialRay.hitPos - spatialRay.origin));
-    //    if (v) {
-    //        rayData.radiance += spatialRay.radiance;
-    //    }
-    //}
-
     if (sampleNext1D(rayData.sg) < gGuidedRayProb) {
         // Generate scatter ray for the next path segment.
         // The raygen shader will continue the path based on the returned payload.

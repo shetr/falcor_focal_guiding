@@ -135,6 +135,7 @@ void FocalDensities::execute(RenderContext* pRenderContext, const RenderData& re
     var["CB"]["gUseNarrowing"] = (mUseNarrowing && mNarrowFromPass >= mPassCount) ? 1.0f : 0.0f;
     var["CB"]["gSceneBoundsMin"] = mpScene->getSceneBounds().minPoint;
     var["CB"]["gSceneBoundsMax"] = mpScene->getSceneBounds().maxPoint;
+    var["CB"]["gGuidedRayProb"] = mGuidedRayProb;
 
     Dictionary& dict = renderData.getDictionary();
     dict["gNodes"] = mNodes;
@@ -164,32 +165,32 @@ void FocalDensities::execute(RenderContext* pRenderContext, const RenderData& re
         bind(channel);
     for (auto channel : kOutputChannels)
         bind(channel);
-
     {
-        std::vector<DensityNode> nodes;
-        nodes.resize(mMaxNodesSize);
-        mNodes->getBlob(nodes.data(), 0, mMaxNodesSize * sizeof(DensityNode));
-        mTempNodes->setBlob(nodes.data(), 0, mMaxNodesSize * sizeof(DensityNode));
-        float globalAccumulator = mGlobalAccumulator->getElement<float>(0);
-        mTempGlobalAccumulator->setElement(0, globalAccumulator);
-    }
+        {
+            std::vector<DensityNode> nodes;
+            nodes.resize(mMaxNodesSize);
+            mNodes->getBlob(nodes.data(), 0, mMaxNodesSize * sizeof(DensityNode));
+            mTempNodes->setBlob(nodes.data(), 0, mMaxNodesSize * sizeof(DensityNode));
+            float globalAccumulator = mGlobalAccumulator->getElement<float>(0);
+            mTempGlobalAccumulator->setElement(0, globalAccumulator);
+        }
 
-    auto nodes_var = mpNodesBlock->getRootVar();
-    nodes_var["nodes"] = mNodes;
-    auto temp_nodes_var = mpTempNodesBlock->getRootVar();
-    temp_nodes_var["nodes"] = mTempNodes;
+        auto nodes_var = mpNodesBlock->getRootVar();
+        nodes_var["nodes"] = mNodes;
+        auto temp_nodes_var = mpTempNodesBlock->getRootVar();
+        temp_nodes_var["nodes"] = mTempNodes;
 
-    var["gNodes"] = mpNodesBlock;
-    var["gGlobalAccumulator"] = mGlobalAccumulator;
-    var["gOutNodes"] = mpTempNodesBlock;
-    var["gOutGlobalAccumulator"] = mTempGlobalAccumulator;
+        var["gNodes"] = mpNodesBlock;
+        var["gGlobalAccumulator"] = mGlobalAccumulator;
+        var["gOutNodes"] = mpTempNodesBlock;
+        var["gOutGlobalAccumulator"] = mTempGlobalAccumulator;
 
-    // Get dimensions of ray dispatch.
-    const uint2 targetDim = renderData.getDefaultTextureDims();
-    FALCOR_ASSERT(targetDim.x > 0 && targetDim.y > 0);
+        // Get dimensions of ray dispatch.
+        const uint2 targetDim = renderData.getDefaultTextureDims();
+        FALCOR_ASSERT(targetDim.x > 0 && targetDim.y > 0);
 
-    if (!mPause && (!mLimitedPasses || mPassCount < mMaxPassCount))
-    {
+        if (!mPause && (!mLimitedPasses || mPassCount < mMaxPassCount))
+
         // Spawn the rays.
         mpScene->raytrace(pRenderContext, mTracer.pProgram.get(), mTracer.pVars, uint3(targetDim, 1));
 
@@ -377,17 +378,17 @@ DensityNode randNode()
     };
 }
 
-DensityNode emptyNode()
+DensityNode emptyNode(float acc)
 {
     return DensityNode{
-        {{0, 1.0f, 1.0f / 8.0f},
-         {0, 1.0f, 1.0f / 8.0f},
-         {0, 1.0f, 1.0f / 8.0f},
-         {0, 1.0f, 1.0f / 8.0f},
-         {0, 1.0f, 1.0f / 8.0f},
-         {0, 1.0f, 1.0f / 8.0f},
-         {0, 1.0f, 1.0f / 8.0f},
-         {0, 1.0f, 1.0f / 8.0f}},
+        {{0, acc, 1.0f / 8.0f},
+         {0, acc, 1.0f / 8.0f},
+         {0, acc, 1.0f / 8.0f},
+         {0, acc, 1.0f / 8.0f},
+         {0, acc, 1.0f / 8.0f},
+         {0, acc, 1.0f / 8.0f},
+         {0, acc, 1.0f / 8.0f},
+         {0, acc, 1.0f / 8.0f}},
          0,
          0
     };
@@ -401,6 +402,7 @@ void FocalDensities::setUniformNodes()
 
     float initAcc = 1.0f;
     mGlobalAccumulator->setBlob(&initAcc, 0, sizeof(float));
+    mTempGlobalAccumulator->setBlob(&initAcc, 0, sizeof(float));
 }
 
 std::vector<DensityNode> FocalDensities::genUniformNodes(uint depth, bool random) const
@@ -408,21 +410,7 @@ std::vector<DensityNode> FocalDensities::genUniformNodes(uint depth, bool random
     std::vector<DensityNode> nodes;
     uint ni = 0;
     uint nc = 1;
-    if (depth == 1)
-    {
-        if (random)
-        {
-            nodes.push_back(randNode());
-        }
-        else
-        {
-            nodes.push_back(emptyNode());
-        }
-    }
-    else
-    {
-        nodes.push_back(emptyNode());
-    }
+    nodes.push_back(emptyNode(1.0 / 8.0));
     for (uint d = 0; d < depth - 1; ++d)
     {
         for (uint i = ni; i < ni + nc; ++i)
@@ -430,21 +418,7 @@ std::vector<DensityNode> FocalDensities::genUniformNodes(uint depth, bool random
             for (int ch = 0; ch < 8; ++ch)
             {
                 nodes[i].childs[ch].index = (uint)nodes.size();
-                if (d < depth - 2)
-                {
-                    nodes.push_back(emptyNode());
-                }
-                else
-                {
-                    if (random)
-                    {
-                        nodes.push_back(randNode());
-                    }
-                    else
-                    {
-                        nodes.push_back(emptyNode());
-                    }
-                }
+                nodes.push_back(emptyNode(1.0 / ((float)nc * 64.0)));
                 nodes[nodes.size() - 1].parentIndex = i;
                 nodes[nodes.size() - 1].parentOffsetAndDepth = ch | ((d + 1) << PARENT_OFFSET_BIT_COUNT);
             }
