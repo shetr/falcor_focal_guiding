@@ -51,25 +51,19 @@ void computeMain(uint3 threadId : SV_DispatchThreadID)
 
             if (maxDensity <= 2 * avgDensity)
             {
-                // recompute max/avg values
-                maxDensity = 0;
-                avgDensity = 0;
-                for (int ch = 0; ch < 8; ++ch)
-                {
-                    gNodes.setChildNodeIndex(nodeIndex, ch, 0);
-                    float childMaxDensity = gNodes.getChildAccumulator(nodeIndex, ch) * invGlobalAcc * invVolume;
-                    float childAvgDensity = childMaxDensity;
-                    maxDensity = max(maxDensity, childMaxDensity);
-                    avgDensity += childAvgDensity;
-                }
-                avgDensity *= (1.0 / 8.0);
+                uint parentIndex = gNodes.getParentNodeIndex(nodeIndex);
+                uint parentOffset = gNodes.getParentNodeOffset(nodeIndex);
+                gNodes.setChildNodeToLeaf(parentIndex, parentOffset);
                 // maybe we dont even need to decrease the gNodesSize
                 //gNodesSize.InterlockedAdd(0, -8, newNodeIndex);
                 // if we want to track deletions, then maybe add to another counter
             }
-            // store computed max/avg values
-            gMaxDensities.Store(nodeIndex, maxDensity);
-            gAvgDensities.Store(nodeIndex, avgDensity);
+            else
+            {
+                // store computed max/avg values
+                gMaxDensities.Store(nodeIndex, maxDensity);
+                gAvgDensities.Store(nodeIndex, avgDensity);
+            }
         }
         invVolume *= (1.0 / 8.0);
         AllMemoryBarrier();

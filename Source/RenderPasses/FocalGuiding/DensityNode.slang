@@ -114,6 +114,11 @@ struct DensityNodes
         nodes.Store(index, value);
     }
 
+    void setChildNodeToLeaf(uint parentNodeIndex, uint childOffset)
+    {
+        setChildNodeIndex(parentNodeIndex, childOffset, 0);
+    }
+
     void setChildAccumulator(uint parentNodeIndex, uint childOffset, float value)
     {
         int index = parentNodeIndex * DESNITY_NODE_SIZE + childOffset * DESNITY_CHILD_SIZE + DESNITY_CHILD_ACCUMULATOR_OFFSET;
