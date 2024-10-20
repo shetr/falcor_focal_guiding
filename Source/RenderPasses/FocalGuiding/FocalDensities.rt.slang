@@ -15,6 +15,9 @@ import DensityNode;
 ParameterBlock<DensityNodes> gNodes;
 RWByteAddressBuffer gGlobalAccumulator;
 
+ParameterBlock<DensityNodes> gOutNodes;
+RWByteAddressBuffer gOutGlobalAccumulator;
+
 cbuffer CB
 {
     uint gNodesSize;
@@ -176,11 +179,68 @@ bool generateScatterRay(const ShadingData sd, const IMaterialInstance mi, bool i
         }
         rayData.direction = bsdfSample.wo;
         rayData.thp = bsdfSample.weight;
-        rayData.pdf = bsdfSample.pdf;
+        rayData.pdf = getDirectionPdf(rayData.origin, rayData.direction);
         return any(rayData.thp > 0.f);
     }
 
     return false;
+}
+
+float getDirectionPdf(float3 origin, float3 dir)
+{
+    float pdf = 0;
+    NodeTravRef nodesStack[MAX_OCTREE_DEPTH];
+    uint nodesStackSize = 0;
+    // push first node
+    nodesStack[nodesStackSize] = NodeTravRef(0);
+    ++nodesStackSize;
+    AABB box = AABB(gSceneBoundsMin, gSceneBoundsMax);
+
+    uint failsafe = 0;
+    while (nodesStackSize > 0 && failsafe < 9 * gNodesSize)
+    {
+        uint topIndex = nodesStackSize - 1;
+        if (nodesStack[topIndex].child >= 8) {
+            // pop node
+            --nodesStackSize;
+            // correct the box
+            if (nodesStackSize > 0) {
+                topIndex = nodesStackSize - 1;
+                uint currChildIndex = nodesStack[topIndex].child - 1;
+                int3 axisIndices = unpackOctreeChildIndex(currChildIndex);
+                box = extendBox(box, axisIndices);
+            }
+        }
+        else
+        {
+            uint nodeIndex = nodesStack[topIndex].node;
+            uint childIndex = nodesStack[topIndex].child;
+            DensityChild child = gNodes.getChildNode(nodeIndex, childIndex);
+            int3 axisIndices = unpackOctreeChildIndex(childIndex);
+            AABB childBox = shrinkBox(box, axisIndices);
+
+            float2 nearFar;
+            bool intersected = intersectRayAABB(origin, dir, childBox.minPoint, childBox.maxPoint, nearFar);
+            if (intersected) {
+                float near = length(dir * nearFar.x);
+                float far = length(dir * nearFar.y);
+                float densityTimesVolume = gNodes.getChildAccumulator(nodeIndex, childIndex) / gGlobalAccumulator.Load<float>(0);
+                if (child.isLeaf() || nodesStackSize >= MAX_OCTREE_DEPTH) {
+                    // TODO: maybe divide the volume by total volume
+                    pdf += (pow(nearFar.y, 3) - pow(nearFar.x, 3)) * densityTimesVolume / (3 * childBox.volume());
+                } else {
+                    box = childBox;
+                    // push node
+                    nodesStack[nodesStackSize] = NodeTravRef(child.index);
+                    ++nodesStackSize;
+                }
+            }
+
+            ++nodesStack[topIndex].child;
+        }
+        ++failsafe;
+    }
+    return pdf;
 }
 
 void storeDensities(
@@ -188,13 +248,15 @@ void storeDensities(
     float3 rayDir,
     float3 hitPos,
     float contribution,
-    float pdf,
+    float guidePdf,
     float useNarrowing,
-    ParameterBlock<DensityNodes> nodes,
     uint nodesSize,
-    RWByteAddressBuffer globalAccumulator
+    ParameterBlock<DensityNodes> nodes,
+    RWByteAddressBuffer globalAccumulator,
+    ParameterBlock<DensityNodes> outNodes,
+    RWByteAddressBuffer outGlobalAccumulator
 ) {
-    if (pdf <= 0 || contribution <= 0)
+    if (guidePdf <= 0 || contribution <= 0)
     {
         return;
     }
@@ -202,6 +264,7 @@ void storeDensities(
     float3 hitDir = hitPos - rayOrigin;
     float hitDist = length(hitDir);
     float rayLength = length(rayDir);
+    float invGlobalAccumulator = 1 / globalAccumulator.Load<float>(0);
 
     NodeTravRef nodesStack[MAX_OCTREE_DEPTH];
     uint nodesStackSize = 0;
@@ -218,12 +281,9 @@ void storeDensities(
         float far = length(rayDir * nearFar.y);
         if (near < hitDist) {
             float lengthWeight = (min(hitDist, far) - near) / rayLength;
-            float volume = box.volume();
-            float density = 1 / volume;
-            float segment = (pow(nearFar.y, 3) - pow(nearFar.x, 3)) / (3 * volume);
-            float narrowWeight = density * segment / pdf;
+            float narrowWeight = 1.0;
             float weight = useNarrowing * narrowWeight + (1 - useNarrowing) * lengthWeight;
-            globalAccumulator.InterlockedAddF32(0, weight * contribution);
+            outGlobalAccumulator.InterlockedAddF32(0, weight * contribution);
         }
     }
 
@@ -256,15 +316,13 @@ void storeDensities(
                 float far = length(rayDir * nearFar.y);
                 if (near < hitDist) {
                     float lengthWeight = (min(hitDist, far) - near) / rayLength;
-                    float volume = childBox.volume();
-                    float densityTimesVolume = gNodes.getChildAccumulator(nodeIndex, childIndex) / globalAccumulator.Load<float>(0);
-                    float density = densityTimesVolume / volume;
-                    float segment = (pow(nearFar.y, 3) - pow(nearFar.x, 3)) / (3 * volume);
-                    float narrowWeight = density * segment / pdf;
+                    float densityTimesVolume = child.accumulator * invGlobalAccumulator;
+                    float segment = (pow(nearFar.y, 3) - pow(nearFar.x, 3)) / (3 * childBox.volume());
+                    float narrowWeight = densityTimesVolume * segment / guidePdf;
                     float weight = useNarrowing * narrowWeight + (1 - useNarrowing) * lengthWeight;
-                    nodes.addToChildAccumulator(nodeIndex, childIndex, weight * contribution);
+                    outNodes.addToChildAccumulator(nodeIndex, childIndex, weight * contribution);
                     // just for debug
-                    nodes.setChildDensity(nodeIndex, childIndex, narrowWeight);
+                    outNodes.setChildDensity(nodeIndex, childIndex, narrowWeight);
                     if (child.isLeaf() || nodesStackSize >= MAX_OCTREE_DEPTH) {
                     } else {
                         box = childBox;
@@ -399,7 +457,7 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
             float3 origin = origins[depth];
             float3 hitPos = origins[depth + 1];
             float3 dir = normalizeSafe(hitPos - origin);
-            storeDensities(origin, dir, hitPos, contributions[depth], pdfs[depth], gUseNarrowing, gNodes, gNodesSize, gGlobalAccumulator);
+            storeDensities(origin, dir, hitPos, contributions[depth], pdfs[depth], gUseNarrowing, gNodesSize, gNodes, gGlobalAccumulator, gOutNodes, gOutGlobalAccumulator);
         }
 
         // Store contribution from scatter ray.

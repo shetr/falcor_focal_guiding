@@ -38,7 +38,10 @@ private:
     ref<SampleGenerator> mpSampleGenerator; ///< GPU sample generator.
     ref<Buffer> mNodes;
     ref<Buffer> mGlobalAccumulator;
+    ref<Buffer> mTempNodes;
+    ref<Buffer> mTempGlobalAccumulator;
     ref<ParameterBlock> mpNodesBlock;
+    ref<ParameterBlock> mpTempNodesBlock;
 
     uint mMaxBounces = 3;   
     uint mNodesSize = 1;
@@ -48,7 +51,7 @@ private:
 
     bool mPause = false;
     bool mLimitedPasses = true;
-    bool mUseNarrowing = true;
+    bool mUseNarrowing = false;
     uint mNarrowFromPass = 4;
     uint mMaxPassCount = 5;
 

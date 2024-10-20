@@ -246,6 +246,7 @@ float getDirectionPdf(float3 origin, float3 dir)
     ++nodesStackSize;
     AABB box = AABB(gSceneBoundsMin, gSceneBoundsMax);
 
+    float totalVolume = box.volume();
     float invGlobalAcc = 1 / gGlobalAccumulator.Load<float>(0);
 
     uint failsafe = 0;
@@ -278,6 +279,7 @@ float getDirectionPdf(float3 origin, float3 dir)
                 float far = length(dir * nearFar.y);
                 float densityTimesVolume = child.accumulator * invGlobalAcc;
                 if (child.isLeaf() || nodesStackSize >= MAX_OCTREE_DEPTH) {
+                    // TODO: maybe divide the volume by total volume
                     pdf += (pow(nearFar.y, 3) - pow(nearFar.x, 3)) * densityTimesVolume / (3 * childBox.volume());
                 } else {
                     box = childBox;

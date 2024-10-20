@@ -165,11 +165,24 @@ void FocalDensities::execute(RenderContext* pRenderContext, const RenderData& re
     for (auto channel : kOutputChannels)
         bind(channel);
 
+    {
+        std::vector<DensityNode> nodes;
+        nodes.resize(mMaxNodesSize);
+        mNodes->getBlob(nodes.data(), 0, mMaxNodesSize * sizeof(DensityNode));
+        mTempNodes->setBlob(nodes.data(), 0, mMaxNodesSize * sizeof(DensityNode));
+        float globalAccumulator = mGlobalAccumulator->getElement<float>(0);
+        mTempGlobalAccumulator->setElement(0, globalAccumulator);
+    }
+
     auto nodes_var = mpNodesBlock->getRootVar();
     nodes_var["nodes"] = mNodes;
+    auto temp_nodes_var = mpTempNodesBlock->getRootVar();
+    temp_nodes_var["nodes"] = mTempNodes;
 
     var["gNodes"] = mpNodesBlock;
     var["gGlobalAccumulator"] = mGlobalAccumulator;
+    var["gOutNodes"] = mpTempNodesBlock;
+    var["gOutGlobalAccumulator"] = mTempGlobalAccumulator;
 
     // Get dimensions of ray dispatch.
     const uint2 targetDim = renderData.getDefaultTextureDims();
@@ -179,6 +192,13 @@ void FocalDensities::execute(RenderContext* pRenderContext, const RenderData& re
     {
         // Spawn the rays.
         mpScene->raytrace(pRenderContext, mTracer.pProgram.get(), mTracer.pVars, uint3(targetDim, 1));
+
+        mNodes.swap(mTempNodes);
+        mGlobalAccumulator.swap(mTempGlobalAccumulator);
+        mpNodesBlock.swap(mpTempNodesBlock);
+
+        dict["gNodes"] = mNodes;
+        dict["gGlobalAccumulator"] = mGlobalAccumulator;
 
         mPassCount++;
     }
@@ -264,6 +284,11 @@ void FocalDensities::setScene(RenderContext* pRenderContext, const ref<Scene>& p
     mpNodesBlock = ParameterBlock::create(mpDevice, pReflector);
     auto nodes_var = mpNodesBlock->getRootVar();
     nodes_var["nodes"] = mNodes;
+
+    
+    mpTempNodesBlock = ParameterBlock::create(mpDevice, pReflector);
+    auto temp_nodes_var = mpTempNodesBlock->getRootVar();
+    temp_nodes_var["nodes"] = mTempNodes;
 }
 
 void FocalDensities::prepareVars()
@@ -297,10 +322,13 @@ void FocalDensities::prepareVars()
     //mNodes = mpDevice->createStructuredBuffer(var["gNodes"], mNodesSize, bindFlags, memoryType, densityNodes.data());
     mNodes = mpDevice->createBuffer(mMaxNodesSize * sizeof(DensityNode), bindFlags | ResourceBindFlags::Shared, memoryType, nullptr);
     mNodes->setBlob(densityNodes.data(), 0, mNodesSize * sizeof(DensityNode));
+    mTempNodes = mpDevice->createBuffer(mMaxNodesSize * sizeof(DensityNode), bindFlags | ResourceBindFlags::Shared, memoryType, nullptr);
+    mTempNodes->setBlob(densityNodes.data(), 0, mNodesSize * sizeof(DensityNode));
     mpSampleGenerator->bindShaderData(var);
 
     float initAcc = 1.0f;
     mGlobalAccumulator = mpDevice->createBuffer(1 * sizeof(float), bindFlags | ResourceBindFlags::Shared, memoryType, &initAcc);
+    mTempGlobalAccumulator = mpDevice->createBuffer(1 * sizeof(float), bindFlags | ResourceBindFlags::Shared, memoryType, &initAcc);
     
 }
 
