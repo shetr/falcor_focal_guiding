@@ -1,7 +1,7 @@
 from falcor import *
 
-def render_graph_FocalGuiding():
-    g = RenderGraph("FocalGuiding")
+def render_graph_FocalGuidingSplit():
+    g = RenderGraph("FocalGuidingJustNarrow")
     AccumulatePass = createPass("AccumulatePass", {'enabled': True, 'precisionMode': 'Single'})
     g.addPass(AccumulatePass, "AccumulatePass")
     ToneMapper = createPass("ToneMapper", {'autoExposure': False, 'exposureCompensation': 0.0})
@@ -10,28 +10,31 @@ def render_graph_FocalGuiding():
     g.addPass(FocalGuiding, "FocalGuiding")
     VBufferRT = createPass("VBufferRT", {'samplePattern': 'Stratified', 'sampleCount': 16})
     g.addPass(VBufferRT, "VBufferRT")
-    FocalDensities = createPass("FocalDensities", {'maxPasses': 5, 'limitedPasses': True, 'useNarrowing': False})
+    FocalDensities = createPass("FocalDensities", {'maxPasses': 5, 'limitedPasses': True, 'useNarrowing': True})
     g.addPass(FocalDensities, "FocalDensities")
+    NodePruning = createPass("NodePruning", {'usePruning': False, 'runInFrame': 6})
+    g.addPass(NodePruning, "NodePruning")
     g.addEdge("VBufferRT.vbuffer", "FocalDensities.vbuffer")
     g.addEdge("VBufferRT.viewW", "FocalDensities.viewW")
-    g.addEdge("FocalDensities", "FocalGuiding")
-    g.addEdge("AccumulatePass.output", "ToneMapper.src")
+    g.addEdge("FocalDensities", "NodePruning")
+    g.addEdge("NodePruning", "FocalGuiding")
     g.addEdge("VBufferRT.vbuffer", "FocalGuiding.vbuffer")
     g.addEdge("VBufferRT.viewW", "FocalGuiding.viewW")
     g.addEdge("FocalGuiding.color", "AccumulatePass.input")
+    g.addEdge("AccumulatePass.output", "ToneMapper.src")
     # visualization
     VBufferViz = createPass("VBufferRT", {'sampleCount': 16})
     g.addPass(VBufferViz, "VBufferViz")
     FocalViz = createPass("FocalViz", {})
     g.addPass(FocalViz, "FocalViz")
-    g.addEdge("FocalDensities", "FocalViz")
+    g.addEdge("FocalGuiding", "FocalViz")
     g.addEdge("VBufferViz.vbuffer", "FocalViz.vbuffer")
     g.addEdge("VBufferViz.viewW", "FocalViz.viewW")
     # outputs
-    g.markOutput("ToneMapper.dst")
     g.markOutput("FocalViz.color")
+    g.markOutput("ToneMapper.dst")
     return g
 
-FocalGuiding = render_graph_FocalGuiding()
-try: m.addGraph(FocalGuiding)
+FocalGuidingSplit = render_graph_FocalGuidingSplit()
+try: m.addGraph(FocalGuidingSplit)
 except NameError: None
