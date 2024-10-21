@@ -29,6 +29,7 @@ const char kNarrowFromPass[] = "narrowFromPass";
 const char kMaxNodesSize[] = "maxNodesSize";
 const char kInitOctreeDepth[] = "initOctreeDepth";
 const char kMaxOctreeDepth[] = "maxOctreeDepth";
+const char kDecay[] = "decay";
 } // namespace
 
 FocalDensities::FocalDensities(ref<Device> pDevice, const Properties& props)
@@ -50,6 +51,8 @@ FocalDensities::FocalDensities(ref<Device> pDevice, const Properties& props)
             mInitOctreeDepth = value;
         else if (key == kMaxOctreeDepth)
             mMaxOctreeDepth = value;
+        else if (key == kDecay)
+            mDecay = value;
         else
             logWarning("Unknown property '{}' in FocalDensities properties.", key);
     }
@@ -68,6 +71,7 @@ Properties FocalDensities::getProperties() const
     props[kMaxNodesSize] = mMaxNodesSize;
     props[kInitOctreeDepth] = mInitOctreeDepth;
     props[kMaxOctreeDepth] = mMaxOctreeDepth;
+    props[kDecay] = mDecay;
     return props;
 }
 
@@ -165,13 +169,21 @@ void FocalDensities::execute(RenderContext* pRenderContext, const RenderData& re
         bind(channel);
     for (auto channel : kOutputChannels)
         bind(channel);
+
+    if (!mPause && (!mLimitedPasses || mPassCount < mMaxPassCount))
     {
         {
-            std::vector<DensityNode> nodes;
-            nodes.resize(mMaxNodesSize);
-            mNodes->getBlob(nodes.data(), 0, mMaxNodesSize * sizeof(DensityNode));
-            mTempNodes->setBlob(nodes.data(), 0, mMaxNodesSize * sizeof(DensityNode));
-            float globalAccumulator = mGlobalAccumulator->getElement<float>(0);
+            mTempLocalNodes.resize(mMaxNodesSize);
+            mNodes->getBlob(mTempLocalNodes.data(), 0, mMaxNodesSize * sizeof(DensityNode));
+            for (size_t i = 0; i < mTempLocalNodes.size(); i++)
+            {
+                for (size_t ch = 0; ch < 8; ch++)
+                {
+                    mTempLocalNodes[i].childs[ch].accumulator *= mDecay;
+                }
+            }
+            mTempNodes->setBlob(mTempLocalNodes.data(), 0, mMaxNodesSize * sizeof(DensityNode));
+            float globalAccumulator = mGlobalAccumulator->getElement<float>(0) * mDecay;
             mTempGlobalAccumulator->setElement(0, globalAccumulator);
         }
 
@@ -188,8 +200,6 @@ void FocalDensities::execute(RenderContext* pRenderContext, const RenderData& re
         // Get dimensions of ray dispatch.
         const uint2 targetDim = renderData.getDefaultTextureDims();
         FALCOR_ASSERT(targetDim.x > 0 && targetDim.y > 0);
-
-        if (!mPause && (!mLimitedPasses || mPassCount < mMaxPassCount))
 
         // Spawn the rays.
         mpScene->raytrace(pRenderContext, mTracer.pProgram.get(), mTracer.pVars, uint3(targetDim, 1));
@@ -228,6 +238,7 @@ void FocalDensities::renderUI(Gui::Widgets& widget)
     widget.slider("max passes", mMaxPassCount, 0u, 50u);
     widget.checkbox("use narrowing", mUseNarrowing);
     widget.slider("narrow from pass", mNarrowFromPass, 0u, 50u);
+    widget.slider("decay", mDecay, 0.0f, 1.0f);
 }
 
 void FocalDensities::setScene(RenderContext* pRenderContext, const ref<Scene>& pScene)
