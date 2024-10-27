@@ -125,6 +125,7 @@ void GuidedRays::execute(RenderContext* pRenderContext, const RenderData& render
     mTracer.pProgram->addDefine("USE_ENV_BACKGROUND", mpScene->useEnvBackground() ? "1" : "0");
 
     mNodes = dict["gNodes"];
+    mGlobalAccumulator = dict["gGlobalAccumulator"];
     mNodesSize = dict["gNodesSize"];
     mMaxNodesSize = dict["gMaxNodesSize"];
     mMaxOctreeDepth = dict["gMaxOctreeDepth"];
@@ -190,6 +191,7 @@ void GuidedRays::execute(RenderContext* pRenderContext, const RenderData& render
     nodes_var["nodes"] = mNodes;
 
     var["gNodes"] = mpNodesBlock;
+    var["gGlobalAccumulator"] = mGlobalAccumulator;
     var["gGuidedRayLines"] = mGuidedRays;
 
     // Get dimensions of ray dispatch.
