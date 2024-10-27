@@ -136,6 +136,7 @@ void GuidedRays::execute(RenderContext* pRenderContext, const RenderData& render
     mUseImportanceSampling = dict["gUseImportanceSampling"];
 
     dict["gGuidedRaysSize"] = mGuidedRaysSize;
+    dict["gMaxGuidedRaysSize"] = mMaxGuidedRaysSize;
     dict["gGuidedRays"] = mGuidedRays;
     dict["gRaysRecomputed"] = false;
     dict["gLinesPathLenght"] = mLinesPathLenght;

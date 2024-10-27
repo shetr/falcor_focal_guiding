@@ -45,6 +45,7 @@ void GuidedRayViz::execute(RenderContext* pRenderContext, const RenderData& rend
 
     Dictionary& dict = renderData.getDictionary();
     mGuidedRaysSize = dict["gGuidedRaysSize"];
+    mMaxGuidedRaysSize = dict["gMaxGuidedRaysSize"];
     mGuidedRays = dict["gGuidedRays"];
     bool raysRecomputed = dict["gRaysRecomputed"];
     uint linesPathLenght = dict["gLinesPathLenght"];
@@ -110,6 +111,27 @@ void GuidedRayViz::setScene(RenderContext* pRenderContext, const ref<Scene>& pSc
     if (mpScene)
         mpProgram->addDefines(mpScene->getSceneDefines());
     mpVars = ProgramVars::create(mpDevice, mpProgram->getReflector());
+
+    //SceneBuilder sceneBuilder = SceneBuilder(mpDevice, {});
+    //SceneBuilder::ProcessedMesh mesh;
+    //// mesh.topology = Vao::Topology::LineList;
+    //mesh.topology = Vao::Topology::TriangleList;
+    //ref<Material> meshMat = StandardMaterial::create(mpDevice, "lines");
+    //sceneBuilder.addMaterial(meshMat);
+    //mesh.pMaterial = meshMat;
+    //
+    //mLinesMeshId = sceneBuilder.addProcessedMesh(mesh);
+    //mLinesNodeId = sceneBuilder.addNode(SceneBuilder::Node());
+    //sceneBuilder.addMeshInstance(mLinesNodeId, mLinesMeshId);
+    //ref<Camera> camera = Camera::create("lines_camera");
+    //*camera.get() = *mpScene->getCamera().get();
+    //camera->setName("lines_camera");
+    //sceneBuilder.addCamera(camera);
+    //sceneBuilder.addMaterial(meshMat);
+    //
+    //mpRayScene = sceneBuilder.getScene();
+    //mpRayScene->setCameraController(Scene::CameraControllerType::FirstPerson);
+    //mpRayScene->setCameraControlsEnabled(true);
 }
 
 bool GuidedRayViz::onMouseEvent(const MouseEvent& mouseEvent)
@@ -152,8 +174,9 @@ void GuidedRayViz::generateRaysGeometry(uint linesPathLenght)
     SceneBuilder::ProcessedMesh mesh;
     //mesh.topology = Vao::Topology::LineList;
     mesh.topology = Vao::Topology::TriangleList;
-    MaterialSystem matSystem = MaterialSystem(mpDevice);
-    mesh.pMaterial = StandardMaterial::create(mpDevice, "lines");
+    ref<Material> meshMat = StandardMaterial::create(mpDevice, "lines");
+    sceneBuilder.addMaterial(meshMat);
+    mesh.pMaterial = meshMat;
 
     int index = 0;
     for (uint i = 0; i < mGuidedRaysSize; ++i)
@@ -166,12 +189,9 @@ void GuidedRayViz::generateRaysGeometry(uint linesPathLenght)
     auto meshId = sceneBuilder.addProcessedMesh(mesh);
     auto nodeId = sceneBuilder.addNode(SceneBuilder::Node());
     sceneBuilder.addMeshInstance(nodeId, meshId);
-    //ref<Camera> camera = Camera::create("lineSceneCam");
-    //sceneBuilder.addCamera(camera);
-    //sceneBuilder.addCamera(mpScene->getCamera());
-    ref<Camera> camera = Camera::create("test");
+    ref<Camera> camera = Camera::create("lineSceneCam");
     *camera.get() = *mpScene->getCamera().get();
-    camera->setName("test");
+    camera->setName("lineSceneCam");
     sceneBuilder.addCamera(camera);
 
     ref<Scene> newScene = sceneBuilder.getScene();

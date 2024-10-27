@@ -37,6 +37,7 @@ private:
     );
     float3 getPerpendicualrTo(float3 dir);
 
+    uint mMaxGuidedRaysSize = 1000;
     uint mGuidedRaysSize = 10;
     float mLineLengthScale = 0.25;
     float mLineWidthScale = 0.5;
@@ -50,6 +51,8 @@ private:
     ref<Scene> mpScene;
 
     ref<Scene> mpRayScene;
+    MeshID mLinesMeshId;
+    NodeID mLinesNodeId;
 
     ref<Program> mpProgram;
     ref<GraphicsState> mpGraphicsState;
