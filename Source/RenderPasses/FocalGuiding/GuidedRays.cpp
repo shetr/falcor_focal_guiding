@@ -165,6 +165,7 @@ void GuidedRays::execute(RenderContext* pRenderContext, const RenderData& render
     var["CB"]["gGuidedRaysPos"] = mGuidedRaysPos;
     var["CB"]["gGuidedRayLinesSize"] = mGuidedRaysSize * mLinesPathLenght;
     var["CB"]["gLinesPathLenght"] = mLinesPathLenght;
+    var["CB"]["gGenRadius"] = mGenRadius;
     var["CB"]["gSceneBoundsMin"] = mpScene->getSceneBounds().minPoint;
     var["CB"]["gSceneBoundsMax"] = mpScene->getSceneBounds().maxPoint;
     var["CB"]["gFrameCount"] = mFrameCount;
@@ -217,6 +218,7 @@ void GuidedRays::renderUI(Gui::Widgets& widget)
     raysStateChanged |= widget.slider("rays pos Y", mGuidedRaysPos.y, 0.0f, 1.0f);
     raysStateChanged |= widget.slider("rays count", mGuidedRaysSize, 1u, mMaxGuidedRaysSize);
     raysStateChanged |= widget.slider("path length", mLinesPathLenght, 1u, 5u);
+    raysStateChanged |= widget.slider("gen radius", mGenRadius, 0.0f, 0.5f);
     if (raysStateChanged)
     {
         //mComputeRays = true;

@@ -22,6 +22,7 @@ cbuffer CB
     float2 gGuidedRaysPos;
     uint gGuidedRayLinesSize;
     uint gLinesPathLenght;
+    float gGenRadius;
     float3 gSceneBoundsMin;
     float3 gSceneBoundsMax;
     uint gFrameCount;    // Frame count since scene was loaded.
@@ -542,7 +543,11 @@ float3 tracePath(const uint2 inPixel, const uint2 frameDim)
     // Create sample generator.
     SampleGenerator sg = SampleGenerator(inPixel, gFrameCount);
 
-    uint2 rayStartPixel = uint2(gGuidedRaysPos * float2(frameDim));
+    float radius = sampleNext1D(sg) * gGenRadius;
+    float theta = sampleNext1D(sg) * 2 * M_PI;
+    float shrinkX = ((float)frameDim.y) / ((float)frameDim.x);
+    float2 rayOffset = float2(radius * shrinkX * cos(theta), radius * sin(theta));
+    uint2 rayStartPixel = uint2((gGuidedRaysPos + rayOffset) * float2(frameDim));
 
     float3 outColor = float3(0.f);
 
