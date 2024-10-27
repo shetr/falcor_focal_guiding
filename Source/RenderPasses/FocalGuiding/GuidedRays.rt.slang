@@ -535,32 +535,21 @@ void handleHit(const HitInfo hit, inout ScatterRayData rayData)
     rayData.pathLength++;
 }
 
-/** This is the main entry point for the minimal path tracer.
-
-    One path per pixel is generated, which is traced into the scene.
-    The path tracer is written as a for-loop over path segments.
-
-    Built-in light sources (point, directional) are sampled explicitly at each
-    path vertex. The contributions from area lights (env map and mesh lights)
-    are explicitly added by the scatter ray hit/miss shaders.
-
-    \param[in] pixel Pixel to trace a path for.
-    \param[in] frameDim Dimension of the frame in pixels.
-    \return Returns the estimated color (radiance).
-*/
-float3 tracePath(const uint2 pixel, const uint2 frameDim)
+float3 tracePath(const uint2 inPixel, const uint2 frameDim)
 {
-    uint2 centerPixel = uint2(gGuidedRaysPos * float2(frameDim));
-    if (pixel.x != centerPixel.x || pixel.y != centerPixel.y) {
-        return float3(0);
-    }
+    uint rayIndex = inPixel.x + inPixel.y * frameDim.x;
+
+    // Create sample generator.
+    SampleGenerator sg = SampleGenerator(inPixel, gFrameCount);
+
+    uint2 rayStartPixel = uint2(gGuidedRaysPos * float2(frameDim));
 
     float3 outColor = float3(0.f);
 
     const float3 primaryRayOrigin = gScene.camera.getPosition();
-    const float3 primaryRayDir = getPrimaryRayDir(pixel, frameDim, gScene.camera);
+    const float3 primaryRayDir = getPrimaryRayDir(rayStartPixel, frameDim, gScene.camera);
 
-    const HitInfo hit = HitInfo(gVBuffer[pixel]);
+    const HitInfo hit = HitInfo(gVBuffer[rayStartPixel]);
     if (hit.isValid())
     {
         // Pixel represents a valid primary hit. Compute its contribution
@@ -571,9 +560,6 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
 
         // Create material instance at shading point.
         let mi = gScene.materials.getMaterialInstance(sd, lod);
-
-        // Create sample generator.
-        SampleGenerator sg = SampleGenerator(pixel, gFrameCount);
 
         // Advance the generator to the first available dimension.
         // TODO: This is potentially expensive. We may want to store/restore the state from memory if it becomes a problem.
@@ -592,10 +578,10 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
             outColor += kUseAnalyticLights ? evalDirectAnalytic(sd, mi, sg) : float3(0.f);
         }
 
-        // Prepare ray payload.
-        ScatterRayData rayData = ScatterRayData(sg);
-        for (uint i = 0; i < gGuidedRayLinesSize / gLinesPathLenght; ++i)
+        if (rayIndex < gGuidedRayLinesSize / gLinesPathLenght)
         {
+            // Prepare ray payload.
+            ScatterRayData rayData = ScatterRayData(sg);
             float prob = 1.0;
             if (sampleNext1D(rayData.sg) < gGuidedRayProb) {
                 // Generate scatter ray for the next path segment.
@@ -611,9 +597,9 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
             }
             if (gLinesPathLenght == 1)
             {
-                gGuidedRayLines[i].pos1 = rayData.origin;
-                gGuidedRayLines[i].pos2 = rayData.origin + rayData.direction * prob;
-                gGuidedRayLines[i].color = rayData.radiance;
+                gGuidedRayLines[rayIndex].pos1 = rayData.origin;
+                gGuidedRayLines[rayIndex].pos2 = rayData.origin + rayData.direction * prob;
+                gGuidedRayLines[rayIndex].color = rayData.radiance;
 
                 rayData = ScatterRayData(rayData.sg);
             }
@@ -621,10 +607,10 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
             {
                 for (int l = 0; l < gLinesPathLenght; l++)
                 {
-                    gGuidedRayLines[i * gLinesPathLenght + l].pos1 = rayData.origin;
-                    gGuidedRayLines[i * gLinesPathLenght + l].color = rayData.radiance;
+                    gGuidedRayLines[rayIndex * gLinesPathLenght + l].pos1 = rayData.origin;
+                    gGuidedRayLines[rayIndex * gLinesPathLenght + l].color = rayData.radiance;
                     traceScatterRay(rayData);
-                    gGuidedRayLines[i * gLinesPathLenght + l].pos2 = rayData.origin;
+                    gGuidedRayLines[rayIndex * gLinesPathLenght + l].pos2 = rayData.origin;
                 }
                 rayData = ScatterRayData(rayData.sg);
             }
