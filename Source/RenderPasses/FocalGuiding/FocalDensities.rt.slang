@@ -43,7 +43,7 @@ static const uint kMaxOctreeDepth = MAX_OCTREE_DEPTH;
 static const float3 kDefaultBackgroundColor = float3(0, 0, 0);
 static const float kRayTMax = FLT_MAX;
 
-/** Payload for scatter ray (up to 76B).
+/** Payload for scatter ray (up to 72B).
  */
 struct ScatterRayData
 {
@@ -53,7 +53,6 @@ struct ScatterRayData
     uint pathLength;  ///< Path length in number of path segments (0 at origin, 1 at first secondary hit, etc.). Max 2^31.
     float3 origin;    ///< Next path segment origin.
     float3 direction; ///< Next path segment direction.
-    float pdf;
 
     SampleGenerator sg; ///< Per-ray state for the sample generator (up to 16B).
 
@@ -68,7 +67,6 @@ struct ScatterRayData
         this.origin = float3(0, 0, 0);
         this.direction = float3(0, 0, 0);
         this.sg = sg;
-        this.pdf = 0.0;
     }
 };
 
@@ -301,7 +299,6 @@ void generateGuidedRay(const ShadingData sd, const IMaterialInstance mi, float3 
 
     float guidedPdf;
     float misWeight = getMisWeight(sd, mi, rayOrigin, dir, guidedPdf);
-    rayData.pdf = guidedPdf;
     rayData.thp *= mi.eval(sd, dir, rayData.sg) * misWeight;
 }
 
@@ -328,7 +325,6 @@ bool generateScatterRay(const ShadingData sd, const IMaterialInstance mi, bool i
         float guidedPdf;
         float misWeight = getMisWeight(sd, mi, rayData.origin, rayData.direction, guidedPdf);
         rayData.thp *= mi.eval(sd, rayData.direction, rayData.sg) * misWeight;
-        rayData.pdf = guidedPdf;
         return any(rayData.thp > 0.f);
     }
 
@@ -340,14 +336,13 @@ void storeDensitiesNoNarrowing(
     float3 rayDir,
     float3 hitPos,
     float contribution,
-    float guidePdf,
     uint nodesSize,
     ParameterBlock<DensityNodes> nodes,
     RWByteAddressBuffer globalAccumulator,
     ParameterBlock<DensityNodes> outNodes,
     RWByteAddressBuffer outGlobalAccumulator
 ) {
-    if (guidePdf <= 0 || contribution <= 0)
+    if (contribution <= 0)
     {
         return;
     }
@@ -406,8 +401,7 @@ void storeDensitiesNoNarrowing(
                 if (near < hitDist) {
                     float lengthWeight = (min(hitDist, far) - near) / rayLength;
                     outNodes.addToChildAccumulator(nodeIndex, childIndex, lengthWeight * contribution);
-                    // just for debug
-                    outNodes.setChildDensity(nodeIndex, childIndex, guidePdf);
+                    outNodes.setChildDensity(nodeIndex, childIndex, lengthWeight);
                     if (child.isLeaf() || nodesStackSize >= MAX_OCTREE_DEPTH) {
                     } else {
                         box = childBox;
@@ -430,14 +424,13 @@ void storeDensitiesWithNarrowing(
     float3 rayDir,
     float3 hitPos,
     float contribution,
-    float guidePdf,
     uint nodesSize,
     ParameterBlock<DensityNodes> nodes,
     RWByteAddressBuffer globalAccumulator,
     ParameterBlock<DensityNodes> outNodes,
     RWByteAddressBuffer outGlobalAccumulator
 ) {
-    if (guidePdf <= 0 || contribution <= 0)
+    if (contribution <= 0)
     {
         return;
     }
@@ -684,7 +677,6 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
 
         float3 origins[MAX_BOUNCES + 2];
         float contributions[MAX_BOUNCES + 1];
-        float pdfs[MAX_BOUNCES + 1];
 
         // Follow path into the scene and compute its total contribution.
         int depth = 0;
@@ -696,7 +688,6 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
             traceScatterRay(rayData);
 
             contributions[depth] = dot(float3(0.299, 0.587, 0.114), rayData.radiance);
-            pdfs[depth] = rayData.pdf;
         }
         int depthCount = depth;
         origins[depthCount] = rayData.origin;
@@ -712,11 +703,11 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
             float3 dir = normalizeSafe(hitPos - origin);
             if (gUseNarrowing == 0)
             {
-                storeDensitiesNoNarrowing( origin, dir, hitPos, contributions[depth], pdfs[depth], gNodesSize, gNodes, gGlobalAccumulator, gOutNodes, gOutGlobalAccumulator );
+                storeDensitiesNoNarrowing(origin, dir, hitPos, contributions[depth], gNodesSize, gNodes, gGlobalAccumulator, gOutNodes, gOutGlobalAccumulator );
             }
             else
             {
-                storeDensitiesWithNarrowing( origin, dir, hitPos, contributions[depth], pdfs[depth], gNodesSize, gNodes, gGlobalAccumulator, gOutNodes, gOutGlobalAccumulator );
+                storeDensitiesWithNarrowing(origin, dir, hitPos, contributions[depth], gNodesSize, gNodes, gGlobalAccumulator, gOutNodes, gOutGlobalAccumulator );
 
             }
         }
