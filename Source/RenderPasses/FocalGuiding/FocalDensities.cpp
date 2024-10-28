@@ -349,21 +349,34 @@ void FocalDensities::printNodes()
     float globalAccumulator = mGlobalAccumulator->getElement<float>(0);
     std::vector<DensityNode> densityNodes = mNodes->getElements<DensityNode>(0, mNodesSize);
 
+    float sceneVolume = mpScene->getSceneBounds().volume();
+
     printf("node count:         %d\n", mNodesSize);
     printf("global accumulator: %f\n", globalAccumulator);
     for (uint i = 0; i < mNodesSize; ++i)
     {
         printf("  node: %d\n", i);
-        printf("    parentIndex:  %d\n", densityNodes[i].parentIndex);
+        printf("    parentIndex : %d\n", densityNodes[i].parentIndex);
         printf("    parentOffset: %d\n", densityNodes[i].parentOffsetAndDepth & PARENT_OFFSET_BITS);
-        printf("    depth: %d\n", densityNodes[i].parentOffsetAndDepth >> PARENT_OFFSET_BIT_COUNT);
+        uint depth = densityNodes[i].parentOffsetAndDepth >> PARENT_OFFSET_BIT_COUNT;
+        printf("    depth       : %d\n", depth);
+        float relVolume = powf(1.0f / 8.0f, depth);
+        printf("    relVolume   : %f\n", relVolume);
+        float volume = sceneVolume * relVolume;
+        printf("    volume      : %f\n", volume);
         for (int ch = 0; ch < 8; ++ch)
         {
             DensityChild child = densityNodes[i].childs[ch];
             printf("    child: %d\n", child.index);
-            printf("      is leaf:     %d\n", (int)child.isLeaf());
-            printf("      accumulator: %f\n", child.accumulator);
-            printf("      density:     %f\n", child.density);
+            printf("      is leaf       : %d\n", (int)child.isLeaf());
+            printf("      accumulator   : %f\n", child.accumulator);
+            float densityTimesVolume = child.accumulator / globalAccumulator;
+            printf("      density*volume: %f\n", densityTimesVolume);
+            float relDensity = densityTimesVolume / (relVolume / 8.0f);
+            printf("      relDensity    : %f\n", relDensity);
+            float density = densityTimesVolume / (volume / 8.0f);
+            printf("      density       : %f\n", density);
+            printf("      debug value   : %f\n", child.density);
         }
     }
 }
