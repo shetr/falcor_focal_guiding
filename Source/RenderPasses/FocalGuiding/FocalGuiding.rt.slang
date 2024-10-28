@@ -10,6 +10,7 @@ import Utils.Geometry.IntersectionHelpers;
 import Rendering.Lights.LightHelpers;
 
 import DensityNode;
+import FocalShared;
 
 ParameterBlock<DensityNodes> gNodes;
 RWByteAddressBuffer gGlobalAccumulator;
@@ -42,58 +43,6 @@ static const bool kUseEnvLight = USE_ENV_LIGHT;
 static const bool kUseEnvBackground = USE_ENV_BACKGROUND;
 static const float3 kDefaultBackgroundColor = float3(0, 0, 0);
 static const float kRayTMax = FLT_MAX;
-
-/** Payload for shadow ray.
-*/
-struct ShadowRayData
-{
-    bool visible;
-};
-
-/** Payload for scatter ray (up to 72B).
-*/
-struct ScatterRayData
-{
-    float3  radiance;       ///< Accumulated outgoing radiance from path.
-    bool    terminated;     ///< Set to true when path is terminated.
-    float3  thp;            ///< Current path throughput. This is updated at each path vertex.
-    uint    pathLength;     ///< Path length in number of path segments (0 at origin, 1 at first secondary hit, etc.). Max 2^31.
-    float3  origin;         ///< Next path segment origin.
-    float3  direction;      ///< Next path segment direction.
-
-    SampleGenerator sg;     ///< Per-ray state for the sample generator (up to 16B).
-
-    /** Initializes ray payload with default parameters.
-    */
-    __init(SampleGenerator sg)
-    {
-        this.terminated = false;
-        this.pathLength = 0;
-        this.radiance = float3(0, 0, 0);
-        this.thp = float3(1, 1, 1);
-        this.origin = float3(0, 0, 0);
-        this.direction = float3(0, 0, 0);
-        this.sg = sg;
-    }
-};
-
-struct SpatialRayData
-{
-    float3 radiance;
-    float3 thp;       ///< Current path throughput. This is updated at each path vertex.
-    float3 origin;    ///< Next path segment origin.
-    float3 direction; ///< Next path segment direction.
-    float3 hitPos;
-
-    __init()
-    {
-        this.radiance = float3(0, 0, 0);
-        this.thp = float3(1, 1, 1);
-        this.origin = float3(0, 0, 0);
-        this.direction = float3(0, 0, 0);
-        this.hitPos = float3(0, 0, 0);
-    }
-}
 
 /** Setup ShadingData based on loaded vertex/material attributes for a hit point.
     \param[in] hit Hit information.
@@ -175,143 +124,6 @@ void traceScatterRay(inout ScatterRayData rayData)
     TraceRay(gScene.rtAccel, rayFlags, 0xff /* instanceInclusionMask */, 0 /* hitIdx */, rayTypeCount, 0 /* missIdx */, ray, rayData);
 }
 
-void traceSpatialRay(inout SpatialRayData rayData)
-{
-    RayDesc ray;
-    ray.Origin = rayData.origin;
-    ray.Direction = rayData.direction;
-    ray.TMin = 0.f;
-    ray.TMax = kRayTMax;
-
-    uint rayFlags = 0; // TODO: Set cull mode from the app
-    TraceRay(gScene.rtAccel, rayFlags, 0xff /* instanceInclusionMask */, 2 /* hitIdx */, rayTypeCount, 2 /* missIdx */, ray, rayData);
-}
-
-float3 samplePointByDensities(out float pdf, inout SampleGenerator sg)
-{
-    uint nodeIndex = 0;
-    AABB box = AABB(gSceneBoundsMin, gSceneBoundsMax);
-    pdf = 1 / box.volume();
-
-    float globalAcc = gGlobalAccumulator.Load<float>(0);
-    float parentAcc = globalAcc;
-
-    uint depth = 0;
-    while (depth < MAX_OCTREE_DEPTH)
-    {
-        float r = sampleNext1D(sg);
-        float stop = r * parentAcc;
-        float acc = 0;
-        uint childIndex = 0;
-        DensityChild child;
-        for (childIndex = 0; childIndex < 8; ++childIndex) {
-            child = gNodes.getChildNode(nodeIndex, childIndex);
-            acc += child.accumulator;
-            if (stop < acc) {
-                break;
-            }
-        }
-        if (childIndex >= 8) {
-            childIndex = uint(r * 8);
-        }
-        int3 axisIndices = unpackOctreeChildIndex(childIndex);
-        AABB childBox = shrinkBox(box, axisIndices);
-        nodeIndex = child.index;
-        box = childBox;
-        if (child.isLeaf()) {
-            pdf *= child.accumulator / globalAcc;
-            break;
-        }
-        parentAcc = child.accumulator;
-        ++depth;
-    }
-    float3 rPos = sampleNext3D(sg);
-    return box.minPoint + rPos * box.extent();
-}
-
-float3 sampleDirectionByDensities(float3 origin, inout SampleGenerator sg)
-{
-    float pointPdf;
-    float3 samplePoint = samplePointByDensities(pointPdf, sg);
-    return normalize(samplePoint - origin);
-}
-
-float getDirectionPdf(float3 origin, float3 dir)
-{
-    float pdf = 0;
-    NodeTravRef nodesStack[MAX_OCTREE_DEPTH];
-    uint nodesStackSize = 0;
-    // push first node
-    nodesStack[nodesStackSize] = NodeTravRef(0);
-    ++nodesStackSize;
-    AABB box = AABB(gSceneBoundsMin, gSceneBoundsMax);
-
-    float totalVolume = box.volume();
-    float invGlobalAcc = 1 / gGlobalAccumulator.Load<float>(0);
-
-    uint failsafe = 0;
-    while (nodesStackSize > 0 && failsafe < 9 * gNodesSize)
-    {
-        uint topIndex = nodesStackSize - 1;
-        if (nodesStack[topIndex].child >= 8) {
-            // pop node
-            --nodesStackSize;
-            // correct the box
-            if (nodesStackSize > 0) {
-                topIndex = nodesStackSize - 1;
-                uint currChildIndex = nodesStack[topIndex].child - 1;
-                int3 axisIndices = unpackOctreeChildIndex(currChildIndex);
-                box = extendBox(box, axisIndices);
-            }
-        }
-        else
-        {
-            uint nodeIndex = nodesStack[topIndex].node;
-            uint childIndex = nodesStack[topIndex].child;
-            DensityChild child = gNodes.getChildNode(nodeIndex, childIndex);
-            int3 axisIndices = unpackOctreeChildIndex(childIndex);
-            AABB childBox = shrinkBox(box, axisIndices);
-
-            float2 nearFar;
-            bool intersected = intersectRayAABB(origin, dir, childBox.minPoint, childBox.maxPoint, nearFar);
-            if (intersected) {
-                float near = length(dir * nearFar.x);
-                float far = length(dir * nearFar.y);
-                float densityTimesVolume = child.accumulator * invGlobalAcc;
-                if (child.isLeaf() || nodesStackSize >= MAX_OCTREE_DEPTH) {
-                    // TODO: maybe divide the volume by total volume
-                    pdf += (pow(nearFar.y, 3) - pow(nearFar.x, 3)) * densityTimesVolume / (3 * childBox.volume());
-                } else {
-                    box = childBox;
-                    // push node
-                    nodesStack[nodesStackSize] = NodeTravRef(child.index);
-                    ++nodesStackSize;
-                }
-            }
-
-            ++nodesStack[topIndex].child;
-        }
-        ++failsafe;
-    }
-    return pdf;
-}
-
-SpatialRayData generateSpatialRay(const ShadingData sd, const IMaterialInstance mi, float3 rayOrigin, inout SampleGenerator sg, float3 thp)
-{
-    SpatialRayData rayData;
-    float3 dir = sampleDirectionByDensities(rayOrigin, sg);
-    float pdf = getDirectionPdf(rayOrigin, dir);
-    pdf += mi.evalPdf(sd, dir, true);
-    float invPdf = 1 / pdf;
-
-    rayData.origin = rayOrigin;
-    rayData.direction = dir;
-    rayData.radiance = float3(0, 0, 0);
-    rayData.thp = thp * mi.eval(sd, dir, sg) * invPdf;
-
-    return rayData;
-}
-
 /** Evaluates the direct illumination from analytic lights.
     This function samples Falcor's light list uniformly with one shadow ray.
     \param[in] sd Shading data.
@@ -354,13 +166,15 @@ float3 evalDirectAnalytic(const ShadingData sd, const IMaterialInstance mi, inou
 float getMisWeight(const ShadingData sd, const IMaterialInstance mi, float3 origin, float3 dir)
 {
     float bsdfPdf = mi.evalPdf(sd, dir, kUseImportanceSampling);
-    float guidedPdf = getDirectionPdf(origin, dir);
+    AABB box = AABB(gSceneBoundsMin, gSceneBoundsMax);
+    float guidedPdf = getDirectionPdf(origin, dir, box, gNodes, gNodesSize, gGlobalAccumulator);
     return 1 / (gGuidedRayProb * guidedPdf + (1 - gGuidedRayProb) * bsdfPdf);
 }
 
 void generateGuidedRay(const ShadingData sd, const IMaterialInstance mi, float3 rayOrigin, inout ScatterRayData rayData)
 {
-    float3 dir = sampleDirectionByDensities(rayOrigin, rayData.sg);
+    AABB box = AABB(gSceneBoundsMin, gSceneBoundsMax);
+    float3 dir = sampleDirectionByDensities(rayOrigin, rayData.sg, box, gNodes, gGlobalAccumulator);
 
     const uint lobeTypes = mi.getLobeTypes(sd);
     const bool hasReflection = lobeTypes & uint(LobeType::Reflection);
@@ -413,48 +227,6 @@ bool generateScatterRay(const ShadingData sd, const IMaterialInstance mi, bool i
     }
 
     return false;
-}
-
-float3 sampleSpherical(float3 normal, float3 tangent, out bool isOut, out float pdf, inout SampleGenerator sg)
-{
-    float3 X = tangent;
-    float3 Y = cross(normal, tangent);
-    float3 Z = normal;
-    float phi = sampleNext1D(sg) * 2 * M_PI;
-    float theta = sampleNext1D(sg) * M_PI;
-    isOut = theta <= M_PI * 0.5;
-    float sinTheta = sin(theta);
-    pdf = getSphericalPdfSinTheta(sinTheta);
-    return
-        X * cos(phi) * sinTheta +
-        Y * sin(phi) * sinTheta +
-        Z * cos(theta)
-    ;
-}
-
-float getSphericalPdfSinTheta(float sinTheta)
-{
-    return 1.0 / (2.0 * M_PI * M_PI * sinTheta);
-}
-
-// dir should be normalized
-float getSphericalPdf(float3 dir)
-{
-    return getSphericalPdfSinTheta(acos(dir.z));
-}
-
-void generateSphericalRay(const ShadingData sd, const IMaterialInstance mi, float3 rayOrigin, inout ScatterRayData rayData)
-{
-    float pdf;
-    bool isOut;
-    float3 dir = sampleSpherical(sd.faceN, normalize(sd.tangentW.xyz), isOut, pdf, rayData.sg);
-    float invPdf = 1 / pdf;
-
-    rayOrigin = computeRayOrigin(sd.posW, isOut ? sd.faceN : -sd.faceN);
-
-    rayData.origin = rayOrigin;
-    rayData.direction = dir;
-    rayData.thp *= mi.eval(sd, dir, rayData.sg) * invPdf;
 }
 
 // #define VIZ_DIR
@@ -583,17 +355,6 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
             outColor += kUseAnalyticLights ? evalDirectAnalytic(sd, mi, sg) : float3(0.f);
         }
 
-        // spatial ray
-        //if (kComputeDirect && kMaxBounces > 0)
-        //{
-        //    SpatialRayData spatialRay = generateSpatialRay(sd, mi, rayOrigin, sg, 1);
-        //    traceSpatialRay(spatialRay);
-        //    bool v = traceShadowRay(rayOrigin, spatialRay.direction, length(spatialRay.hitPos - spatialRay.origin));
-        //    if (v) {
-        //        outColor += spatialRay.radiance;
-        //    }
-        //}
-
         // Prepare ray payload.
         ScatterRayData rayData = ScatterRayData(sg);
 
@@ -686,45 +447,6 @@ void shadowTriangleMeshAnyHit(inout ShadowRayData rayData, BuiltInTriangleInters
     VertexData v = getVertexData(instanceID, PrimitiveIndex(), attribs);
     const uint materialID = gScene.getMaterialID(instanceID);
     if (gScene.materials.alphaTest(v, materialID, 0.f)) IgnoreHit();
-}
-
-// spatial rays
-
-[shader("miss")]
-void spatialMiss(inout SpatialRayData rayData)
-{
-    rayData.radiance = float3(0);
-}
-
-[shader("closesthit")]
-void spatialTriangleMeshClosestHit(inout SpatialRayData rayData, BuiltInTriangleIntersectionAttributes attribs)
-{
-    TriangleHit triangleHit;
-    triangleHit.instanceID = getGeometryInstanceID();
-    triangleHit.primitiveIndex = PrimitiveIndex();
-    triangleHit.barycentrics = attribs.barycentrics;
-
-    HitInfo hit = HitInfo(triangleHit);
-
-    let lod = ExplicitLodTextureSampler(0.f);
-
-    // Load shading data.
-    ShadingData sd = loadShadingData(hit, rayData.origin, rayData.direction, lod);
-
-    // Create material instance.
-    let mi = gScene.materials.getMaterialInstance(sd, lod);
-
-    rayData.hitPos = sd.computeRayOrigin();
-    // rayData.radiance = float3(0);
-    float distance2 = sqr(length(rayData.hitPos - rayData.origin));
-    //rayData.radiance += (1 / distance2) * rayData.thp * mi.getProperties(sd).emission;
-    rayData.radiance += rayData.thp * mi.getProperties(sd).emission;
-}
-
-[shader("anyhit")]
-void spatialTriangleMeshAnyHit(inout SpatialRayData rayData, BuiltInTriangleIntersectionAttributes attribs)
-{
-    rayData.radiance = float3(0);
 }
 
 //

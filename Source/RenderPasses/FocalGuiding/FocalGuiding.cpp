@@ -255,12 +255,11 @@ void FocalGuiding::setScene(RenderContext* pRenderContext, const ref<Scene>& pSc
         desc.setMaxAttributeSize(mpScene->getRaytracingMaxAttributeSize());
         desc.setMaxTraceRecursionDepth(kMaxRecursionDepth);
 
-        mTracer.pBindingTable = RtBindingTable::create(3, 3, mpScene->getGeometryCount());
+        mTracer.pBindingTable = RtBindingTable::create(2, 2, mpScene->getGeometryCount());
         auto& sbt = mTracer.pBindingTable;
         sbt->setRayGen(desc.addRayGen("rayGen"));
         sbt->setMiss(0, desc.addMiss("scatterMiss"));
         sbt->setMiss(1, desc.addMiss("shadowMiss"));
-        sbt->setMiss(2, desc.addMiss("spatialMiss"));
 
         if (mpScene->hasGeometryType(Scene::GeometryType::TriangleMesh))
         {
@@ -270,10 +269,6 @@ void FocalGuiding::setScene(RenderContext* pRenderContext, const ref<Scene>& pSc
             );
             sbt->setHitGroup(
                 1, mpScene->getGeometryIDs(Scene::GeometryType::TriangleMesh), desc.addHitGroup("", "shadowTriangleMeshAnyHit")
-            );
-            sbt->setHitGroup(
-                2, mpScene->getGeometryIDs(Scene::GeometryType::TriangleMesh),
-                desc.addHitGroup("spatialTriangleMeshClosestHit", "spatialTriangleMeshAnyHit")
             );
         }
 
