@@ -163,72 +163,6 @@ float3 evalDirectAnalytic(const ShadingData sd, const IMaterialInstance mi, inou
     return mi.eval(sd, ls.dir, sg) * ls.Li * invPdf;
 }
 
-float getMisWeight(const ShadingData sd, const IMaterialInstance mi, float3 origin, float3 dir)
-{
-    float bsdfPdf = mi.evalPdf(sd, dir, kUseImportanceSampling);
-    AABB box = AABB(gSceneBoundsMin, gSceneBoundsMax);
-    float guidedPdf = getDirectionPdf(origin, dir, box, gNodes, gNodesSize, gGlobalAccumulator);
-    return 1 / (gGuidedRayProb * guidedPdf + (1 - gGuidedRayProb) * bsdfPdf);
-}
-
-void generateGuidedRay(const ShadingData sd, const IMaterialInstance mi, float3 rayOrigin, inout ScatterRayData rayData)
-{
-    AABB box = AABB(gSceneBoundsMin, gSceneBoundsMax);
-    float3 dir = sampleDirectionByDensities(rayOrigin, rayData.sg, box, gNodes, gGlobalAccumulator);
-
-    const uint lobeTypes = mi.getLobeTypes(sd);
-    const bool hasReflection = lobeTypes & uint(LobeType::Reflection);
-    const bool hasTransmission = lobeTypes & uint(LobeType::Transmission);
-    float NdotL = dot(sd.getOrientedFaceNormal(), dir);
-    // if ((NdotL <= kMinCosTheta && !hasTransmission) || (NdotL >= -kMinCosTheta && !hasReflection))
-    //     return false;
-
-    rayOrigin = computeRayOrigin(sd.posW, dot(sd.faceN, dir) >= 0.f ? sd.faceN : -sd.faceN);
-    // rayOrigin = sd.computeRayOrigin(dot(dir, sd.faceN) >= 0.f);
-    //if ((sd.frontFacing && dot(dir, sd.faceN) <= 0.f) || (!sd.frontFacing && dot(dir, sd.faceN) <= 0.f)) {
-    //    rayOrigin = sd.computeRayOrigin(false);
-    //}
-
-    rayData.origin = rayOrigin;
-    rayData.direction = dir;
-
-    // float pdf = getDirectionPdf(rayOrigin, dir);
-    // float invPdf = 1 / pdf;
-    // rayData.thp *= mi.eval(sd, dir, rayData.sg) * invPdf;
-
-    float misWeight = getMisWeight(sd, mi, rayOrigin, dir);
-    rayData.thp *= mi.eval(sd, dir, rayData.sg) * misWeight;
-}
-
-/** Generate a new scatter ray or terminate.
-    \param[in] sd Shading data.
-    \param[in] mi Material instance.
-    \param[in] isCurveHit True if on curve hit.
-    \param[in] rayOrigin Ray origin for the new ray.
-    \param[in,out] rayData Ray payload.
-    \return True if the path continues.
-*/
-bool generateScatterRay(const ShadingData sd, const IMaterialInstance mi, bool isCurveHit, float3 rayOrigin, inout ScatterRayData rayData)
-{
-    // Sample material.
-    BSDFSample bsdfSample;
-    if (mi.sample(sd, rayData.sg, bsdfSample, kUseImportanceSampling))
-    {
-        rayData.origin = rayOrigin;
-        if (bsdfSample.isLobe(LobeType::Transmission))
-        {
-            rayData.origin = sd.computeRayOrigin(false);
-        }
-        rayData.direction = bsdfSample.wo;
-        float misWeight = getMisWeight(sd, mi, rayData.origin, rayData.direction);
-        rayData.thp *= mi.eval(sd, rayData.direction, rayData.sg) * misWeight;
-        //rayData.thp *= bsdfSample.weight;
-        return any(rayData.thp > 0.f);
-    }
-
-    return false;
-}
-
 // #define VIZ_DIR
 #define VIZ_DIR_DEPTH 1
 
@@ -284,15 +218,17 @@ void handleHit(const HitInfo hit, inout ScatterRayData rayData)
     }
 #endif
 
+    AABB box = AABB(gSceneBoundsMin, gSceneBoundsMax);
+    FocalShared focalShared = FocalShared(box, gGuidedRayProb, gNodes, gNodesSize, gGlobalAccumulator);
     if (sampleNext1D(rayData.sg) < gGuidedRayProb) {
         // Generate scatter ray for the next path segment.
         // The raygen shader will continue the path based on the returned payload.
-        generateGuidedRay(sd, mi, rayOrigin, rayData);
+        focalShared.generateGuidedRay(sd, mi, rayOrigin, rayData);
         //generateSphericalRay(sd, mi, rayOrigin, rayData);
     } else {
         // Generate scatter ray for the next path segment.
         // The raygen shader will continue the path based on the returned payload.
-        if (!generateScatterRay(sd, mi, isCurveHit, rayOrigin, rayData))
+        if (!focalShared.generateScatterRay(sd, mi, isCurveHit, rayOrigin, rayData))
         {
             rayData.terminated = true;
             return;
@@ -355,17 +291,21 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
             outColor += kUseAnalyticLights ? evalDirectAnalytic(sd, mi, sg) : float3(0.f);
         }
 
+        AABB box = AABB(gSceneBoundsMin, gSceneBoundsMax);
+        FocalShared focalShared = FocalShared(box, gGuidedRayProb, gNodes, gNodesSize, gGlobalAccumulator);
+
         // Prepare ray payload.
         ScatterRayData rayData = ScatterRayData(sg);
 
         if (sampleNext1D(rayData.sg) < gGuidedRayProb) {
             // Generate scatter ray for the next path segment.
             // The raygen shader will continue the path based on the returned payload.
-            generateGuidedRay(sd, mi, rayOrigin, rayData);
+            focalShared.generateGuidedRay(sd, mi, rayOrigin, rayData);
             //generateSphericalRay(sd, mi, rayOrigin, rayData);
         } else {
             // Generate scatter ray.
-            if (!generateScatterRay(sd, mi, false, rayOrigin, rayData)) rayData.terminated = true;
+            if (!focalShared.generateScatterRay(sd, mi, false, rayOrigin, rayData))
+                rayData.terminated = true;
         }
 
         // Follow path into the scene and compute its total contribution.

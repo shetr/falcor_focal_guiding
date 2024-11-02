@@ -45,153 +45,244 @@ struct ScatterRayData
     }
 };
 
-float3 samplePointByDensities( out float pdf, inout SampleGenerator sg, AABB box, ParameterBlock<DensityNodes> nodes, RWByteAddressBuffer globalAccumulator)
+struct FocalShared
 {
-    uint nodeIndex = 0;
-    pdf = 1 / box.volume();
+    AABB sceneBox;
+    float guidedRayProb;
+    ParameterBlock<DensityNodes> nodes;
+    uint nodesSize;
+    RWByteAddressBuffer globalAccumulator;
 
-    float globalAcc = globalAccumulator.Load<float>(0);
-    float parentAcc = globalAcc;
-
-    uint depth = 0;
-    while (depth < MAX_OCTREE_DEPTH)
+    __init(
+        AABB _sceneBox,
+        float _guidedRayProb,
+        ParameterBlock<DensityNodes> _nodes,
+        uint _nodesSize,
+        RWByteAddressBuffer _globalAccumulator
+    )
     {
-        float r = sampleNext1D(sg);
-        float stop = r * parentAcc;
-        float acc = 0;
-        uint childIndex = 0;
-        DensityChild child;
-        for (childIndex = 0; childIndex < 8; ++childIndex) {
-            child = nodes.getChildNode(nodeIndex, childIndex);
-            acc += child.accumulator;
-            if (stop < acc) {
-                break;
-            }
-        }
-        if (childIndex >= 8) {
-            childIndex = uint(r * 8);
-        }
-        int3 axisIndices = unpackOctreeChildIndex(childIndex);
-        AABB childBox = shrinkBox(box, axisIndices);
-        nodeIndex = child.index;
-        box = childBox;
-        if (child.isLeaf()) {
-            pdf *= child.accumulator / globalAcc;
-            break;
-        }
-        parentAcc = child.accumulator;
-        ++depth;
+        sceneBox = _sceneBox;
+        guidedRayProb = _guidedRayProb;
+        nodes = _nodes;
+        nodesSize = _nodesSize;
+        globalAccumulator = _globalAccumulator;
     }
-    float3 rPos = sampleNext3D(sg);
-    return box.minPoint + rPos * box.extent();
-}
 
-float3 sampleDirectionByDensities(float3 origin, inout SampleGenerator sg, AABB box, ParameterBlock<DensityNodes> nodes, RWByteAddressBuffer globalAccumulator)
-{
-    float pointPdf;
-    float3 samplePoint = samplePointByDensities(pointPdf, sg, box, nodes, globalAccumulator);
-    return normalize(samplePoint - origin);
-}
-
-float getDirectionPdf(float3 origin, float3 dir, AABB box, ParameterBlock<DensityNodes> nodes, uint nodesSize, RWByteAddressBuffer globalAccumulator)
-{
-    float pdf = 0;
-    NodeTravRef nodesStack[MAX_OCTREE_DEPTH];
-    uint nodesStackSize = 0;
-    // push first node
-    nodesStack[nodesStackSize] = NodeTravRef(0);
-    ++nodesStackSize;
-
-    float totalVolume = box.volume();
-    float invGlobalAcc = 1 / globalAccumulator.Load<float>(0);
-
-    uint failsafe = 0;
-    while (nodesStackSize > 0 && failsafe < 9 * nodesSize)
+    float3 samplePointByDensities(out float pdf, inout SampleGenerator sg)
     {
-        uint topIndex = nodesStackSize - 1;
-        if (nodesStack[topIndex].child >= 8) {
-            // pop node
-            --nodesStackSize;
-            // correct the box
-            if (nodesStackSize > 0) {
-                topIndex = nodesStackSize - 1;
-                uint currChildIndex = nodesStack[topIndex].child - 1;
-                int3 axisIndices = unpackOctreeChildIndex(currChildIndex);
-                box = extendBox(box, axisIndices);
-            }
-        }
-        else
-        {
-            uint nodeIndex = nodesStack[topIndex].node;
-            uint childIndex = nodesStack[topIndex].child;
-            DensityChild child = nodes.getChildNode(nodeIndex, childIndex);
-            int3 axisIndices = unpackOctreeChildIndex(childIndex);
-            AABB childBox = shrinkBox(box, axisIndices);
+        AABB box = sceneBox;
+        uint nodeIndex = 0;
+        pdf = 1 / box.volume();
 
-            float2 nearFar;
-            bool intersected = intersectRayAABB(origin, dir, childBox.minPoint, childBox.maxPoint, nearFar);
-            if (intersected) {
-                float near = length(dir * nearFar.x);
-                float far = length(dir * nearFar.y);
-                float densityTimesVolume = child.accumulator * invGlobalAcc;
-                if (child.isLeaf() || nodesStackSize >= MAX_OCTREE_DEPTH) {
-                    // TODO: maybe divide the volume by total volume
-                    pdf += (pow(nearFar.y, 3) - pow(nearFar.x, 3)) * densityTimesVolume / (3 * childBox.volume());
-                } else {
-                    box = childBox;
-                    // push node
-                    nodesStack[nodesStackSize] = NodeTravRef(child.index);
-                    ++nodesStackSize;
+        float globalAcc = globalAccumulator.Load<float>(0);
+        float parentAcc = globalAcc;
+
+        uint depth = 0;
+        while (depth < MAX_OCTREE_DEPTH)
+        {
+            float r = sampleNext1D(sg);
+            float stop = r * parentAcc;
+            float acc = 0;
+            uint childIndex = 0;
+            DensityChild child;
+            for (childIndex = 0; childIndex < 8; ++childIndex) {
+                child = nodes.getChildNode(nodeIndex, childIndex);
+                acc += child.accumulator;
+                if (stop < acc) {
+                    break;
                 }
             }
-
-            ++nodesStack[topIndex].child;
+            if (childIndex >= 8) {
+                childIndex = uint(r * 8);
+            }
+            int3 axisIndices = unpackOctreeChildIndex(childIndex);
+            AABB childBox = shrinkBox(box, axisIndices);
+            nodeIndex = child.index;
+            box = childBox;
+            if (child.isLeaf()) {
+                pdf *= child.accumulator / globalAcc;
+                break;
+            }
+            parentAcc = child.accumulator;
+            ++depth;
         }
-        ++failsafe;
+        float3 rPos = sampleNext3D(sg);
+        return box.minPoint + rPos * box.extent();
     }
-    return pdf;
-}
 
-// spherical ray sampling
+    float3 sampleDirectionByDensities(float3 origin, inout SampleGenerator sg)
+    {
+        float pointPdf;
+        float3 samplePoint = samplePointByDensities(pointPdf, sg);
+        return normalize(samplePoint - origin);
+    }
 
-float3 sampleSpherical(float3 normal, float3 tangent, out bool isOut, out float pdf, inout SampleGenerator sg)
-{
-    float3 X = tangent;
-    float3 Y = cross(normal, tangent);
-    float3 Z = normal;
-    float phi = sampleNext1D(sg) * 2 * M_PI;
-    float theta = sampleNext1D(sg) * M_PI;
-    isOut = theta <= M_PI * 0.5;
-    float sinTheta = sin(theta);
-    pdf = getSphericalPdfSinTheta(sinTheta);
-    return
-        X * cos(phi) * sinTheta +
-        Y * sin(phi) * sinTheta +
-        Z * cos(theta)
-    ;
-}
+    float getDirectionPdf(float3 origin, float3 dir)
+    {
+        AABB box = sceneBox;
+        float pdf = 0;
+        NodeTravRef nodesStack[MAX_OCTREE_DEPTH];
+        uint nodesStackSize = 0;
+        // push first node
+        nodesStack[nodesStackSize] = NodeTravRef(0);
+        ++nodesStackSize;
 
-float getSphericalPdfSinTheta(float sinTheta)
-{
-    return 1.0 / (2.0 * M_PI * M_PI * sinTheta);
-}
+        float totalVolume = box.volume();
+        float invGlobalAcc = 1 / globalAccumulator.Load<float>(0);
 
-// dir should be normalized
-float getSphericalPdf(float3 dir)
-{
-    return getSphericalPdfSinTheta(acos(dir.z));
-}
+        uint failsafe = 0;
+        while (nodesStackSize > 0 && failsafe < 9 * nodesSize)
+        {
+            uint topIndex = nodesStackSize - 1;
+            if (nodesStack[topIndex].child >= 8) {
+                // pop node
+                --nodesStackSize;
+                // correct the box
+                if (nodesStackSize > 0) {
+                    topIndex = nodesStackSize - 1;
+                    uint currChildIndex = nodesStack[topIndex].child - 1;
+                    int3 axisIndices = unpackOctreeChildIndex(currChildIndex);
+                    box = extendBox(box, axisIndices);
+                }
+            }
+            else
+            {
+                uint nodeIndex = nodesStack[topIndex].node;
+                uint childIndex = nodesStack[topIndex].child;
+                DensityChild child = nodes.getChildNode(nodeIndex, childIndex);
+                int3 axisIndices = unpackOctreeChildIndex(childIndex);
+                AABB childBox = shrinkBox(box, axisIndices);
 
-void generateSphericalRay(const ShadingData sd, const IMaterialInstance mi, float3 rayOrigin, inout ScatterRayData rayData)
-{
-    float pdf;
-    bool isOut;
-    float3 dir = sampleSpherical(sd.faceN, normalize(sd.tangentW.xyz), isOut, pdf, rayData.sg);
-    float invPdf = 1 / pdf;
+                float2 nearFar;
+                bool intersected = intersectRayAABB(origin, dir, childBox.minPoint, childBox.maxPoint, nearFar);
+                if (intersected) {
+                    float near = length(dir * nearFar.x);
+                    float far = length(dir * nearFar.y);
+                    float densityTimesVolume = child.accumulator * invGlobalAcc;
+                    if (child.isLeaf() || nodesStackSize >= MAX_OCTREE_DEPTH) {
+                        // TODO: maybe divide the volume by total volume
+                        pdf += (pow(nearFar.y, 3) - pow(nearFar.x, 3)) * densityTimesVolume / (3 * childBox.volume());
+                    } else {
+                        box = childBox;
+                        // push node
+                        nodesStack[nodesStackSize] = NodeTravRef(child.index);
+                        ++nodesStackSize;
+                    }
+                }
 
-    rayOrigin = computeRayOrigin(sd.posW, isOut ? sd.faceN : -sd.faceN);
+                ++nodesStack[topIndex].child;
+            }
+            ++failsafe;
+        }
+        return pdf;
+    }
 
-    rayData.origin = rayOrigin;
-    rayData.direction = dir;
-    rayData.thp *= mi.eval(sd, dir, rayData.sg) * invPdf;
+    float getMisWeight(const ShadingData sd, const IMaterialInstance mi, float3 origin, float3 dir)
+    {
+        float bsdfPdf = mi.evalPdf(sd, dir, USE_IMPORTANCE_SAMPLING);
+        float guidedPdf = getDirectionPdf(origin, dir);
+        return 1 / (guidedRayProb * guidedPdf + (1 - guidedRayProb) * bsdfPdf);
+    }
+
+    void generateGuidedRay(const ShadingData sd, const IMaterialInstance mi, float3 rayOrigin, inout ScatterRayData rayData)
+    {
+        float3 dir = sampleDirectionByDensities(rayOrigin, rayData.sg);
+
+        const uint lobeTypes = mi.getLobeTypes(sd);
+        const bool hasReflection = lobeTypes & uint(LobeType::Reflection);
+        const bool hasTransmission = lobeTypes & uint(LobeType::Transmission);
+        float NdotL = dot(sd.getOrientedFaceNormal(), dir);
+        // if ((NdotL <= kMinCosTheta && !hasTransmission) || (NdotL >= -kMinCosTheta && !hasReflection))
+        //     return false;
+
+        rayOrigin = computeRayOrigin(sd.posW, dot(sd.faceN, dir) >= 0.f ? sd.faceN : -sd.faceN);
+        // rayOrigin = sd.computeRayOrigin(dot(dir, sd.faceN) >= 0.f);
+        // if ((sd.frontFacing && dot(dir, sd.faceN) <= 0.f) || (!sd.frontFacing && dot(dir, sd.faceN) <= 0.f)) {
+        //    rayOrigin = sd.computeRayOrigin(false);
+        //}
+
+        rayData.origin = rayOrigin;
+        rayData.direction = dir;
+
+        // float pdf = getDirectionPdf(rayOrigin, dir);
+        // float invPdf = 1 / pdf;
+        // rayData.thp *= mi.eval(sd, dir, rayData.sg) * invPdf;
+
+        float misWeight = getMisWeight(sd, mi, rayOrigin, dir);
+        rayData.thp *= mi.eval(sd, dir, rayData.sg) * misWeight;
+    }
+
+    /** Generate a new scatter ray or terminate.
+        \param[in] sd Shading data.
+        \param[in] mi Material instance.
+        \param[in] isCurveHit True if on curve hit.
+        \param[in] rayOrigin Ray origin for the new ray.
+        \param[in,out] rayData Ray payload.
+        \return True if the path continues.
+    */
+    bool generateScatterRay(const ShadingData sd, const IMaterialInstance mi, bool isCurveHit, float3 rayOrigin, inout ScatterRayData rayData)
+    {
+        // Sample material.
+        BSDFSample bsdfSample;
+        if (mi.sample(sd, rayData.sg, bsdfSample, USE_IMPORTANCE_SAMPLING))
+        {
+            rayData.origin = rayOrigin;
+            if (bsdfSample.isLobe(LobeType::Transmission))
+            {
+                rayData.origin = sd.computeRayOrigin(false);
+            }
+            rayData.direction = bsdfSample.wo;
+            float misWeight = getMisWeight(sd, mi, rayData.origin, rayData.direction);
+            rayData.thp *= mi.eval(sd, rayData.direction, rayData.sg) * misWeight;
+            // rayData.thp *= bsdfSample.weight;
+            return any(rayData.thp > 0.f);
+        }
+
+        return false;
+    }
+
+    // spherical ray sampling
+
+    float3 sampleSpherical(float3 normal, float3 tangent, out bool isOut, out float pdf, inout SampleGenerator sg)
+    {
+        float3 X = tangent;
+        float3 Y = cross(normal, tangent);
+        float3 Z = normal;
+        float phi = sampleNext1D(sg) * 2 * M_PI;
+        float theta = sampleNext1D(sg) * M_PI;
+        isOut = theta <= M_PI * 0.5;
+        float sinTheta = sin(theta);
+        pdf = getSphericalPdfSinTheta(sinTheta);
+        return
+            X * cos(phi) * sinTheta +
+            Y * sin(phi) * sinTheta +
+            Z * cos(theta)
+        ;
+    }
+
+    float getSphericalPdfSinTheta(float sinTheta)
+    {
+        return 1.0 / (2.0 * M_PI * M_PI * sinTheta);
+    }
+
+    // dir should be normalized
+    float getSphericalPdf(float3 dir)
+    {
+        return getSphericalPdfSinTheta(acos(dir.z));
+    }
+
+    void generateSphericalRay(const ShadingData sd, const IMaterialInstance mi, float3 rayOrigin, inout ScatterRayData rayData)
+    {
+        float pdf;
+        bool isOut;
+        float3 dir = sampleSpherical(sd.faceN, normalize(sd.tangentW.xyz), isOut, pdf, rayData.sg);
+        float invPdf = 1 / pdf;
+
+        rayOrigin = computeRayOrigin(sd.posW, isOut ? sd.faceN : -sd.faceN);
+
+        rayData.origin = rayOrigin;
+        rayData.direction = dir;
+        rayData.thp *= mi.eval(sd, dir, rayData.sg) * invPdf;
+    }
+
 }
