@@ -222,6 +222,8 @@ struct FocalShared
     */
     bool generateScatterRay(const ShadingData sd, const IMaterialInstance mi, bool isCurveHit, float3 rayOrigin, inout ScatterRayData rayData)
     {
+        BSDFProperties miProps = mi.getProperties(sd);
+        bool enableGuidedRays = miProps.roughness > 0.1 || !sd.frontFacing;
         // Sample material.
         BSDFSample bsdfSample;
         if (mi.sample(sd, rayData.sg, bsdfSample, USE_IMPORTANCE_SAMPLING))
@@ -232,13 +234,19 @@ struct FocalShared
                 rayData.origin = sd.computeRayOrigin(false);
             }
             rayData.direction = bsdfSample.wo;
-            float guidedPdf = getDirectionPdf(rayData.origin, rayData.direction);
-            float misWeight = 1 / (guidedRayProb * guidedPdf + (1 - guidedRayProb) * bsdfSample.pdf);
-            // rayData.thp *= mi.eval(sd, rayData.direction, rayData.sg) * misWeight;
+            //float guidedPdf = getDirectionPdf(rayData.origin, rayData.direction);
             //rayData.thp *= mi.eval(sd, rayData.direction, rayData.sg) / mi.evalPdf(sd, rayData.direction, USE_IMPORTANCE_SAMPLING);
-            rayData.thp *= bsdfSample.weight;
             // float3 fwiwo_dotwon = bsdfSample.weight * bsdfSample.pdf;
-            //rayData.thp *= fwiwo_dotwon / bsdfSample.pdf;
+            // rayData.thp *= fwiwo_dotwon / bsdfSample.pdf;
+            if (!enableGuidedRays || bsdfSample.isLobe(LobeType::Transmission))
+            {
+                rayData.thp *= bsdfSample.weight;
+            }
+            else
+            {
+                float misWeight = getMisWeight(sd, mi, rayOrigin, rayData.direction);
+                rayData.thp *= mi.eval(sd, rayData.direction, rayData.sg) * misWeight;
+            }
             return any(rayData.thp > 0.f);
         }
 
