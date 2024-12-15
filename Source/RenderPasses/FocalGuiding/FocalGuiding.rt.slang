@@ -218,11 +218,9 @@ void handleHit(const HitInfo hit, inout ScatterRayData rayData)
     }
 #endif
 
-    BSDFProperties miProps = mi.getProperties(sd);
-    bool enableGuidedRays = miProps.roughness > 0.1;
-
     AABB box = AABB(gSceneBoundsMin, gSceneBoundsMax);
     FocalShared focalShared = FocalShared(box, gGuidedRayProb, gNodes, gNodesSize, gGlobalAccumulator);
+    bool enableGuidedRays = focalShared.enableGuidedRaysForMaterial(sd, mi);
     if (enableGuidedRays && sampleNext1D(rayData.sg) < gGuidedRayProb) {
         // Generate scatter ray for the next path segment.
         // The raygen shader will continue the path based on the returned payload.
@@ -300,9 +298,7 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
         // Prepare ray payload.
         ScatterRayData rayData = ScatterRayData(sg);
 
-        BSDFProperties miProps = mi.getProperties(sd);
-        bool enableGuidedRays = miProps.roughness > 0.1;
-
+        bool enableGuidedRays = focalShared.enableGuidedRaysForMaterial(sd, mi);
         if (enableGuidedRays && sampleNext1D(rayData.sg) < gGuidedRayProb) {
             // Generate scatter ray for the next path segment.
             // The raygen shader will continue the path based on the returned payload.

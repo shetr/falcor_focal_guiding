@@ -252,6 +252,12 @@ struct FocalShared
         return false;
     }
 
+    bool enableGuidedRaysForMaterial(const ShadingData sd, const IMaterialInstance mi)
+    {
+        BSDFProperties miProps = mi.getProperties(sd);
+        return miProps.roughness > 0.1 && dot(miProps.diffuseTransmissionAlbedo, float3(1)) == 0 && dot(miProps.specularTransmissionAlbedo, float3(1)) == 0;
+    }
+
     // spherical ray sampling
 
     float3 sampleSpherical(float3 normal, float3 tangent, out bool isOut, out float pdf, inout SampleGenerator sg)
