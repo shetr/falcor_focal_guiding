@@ -188,25 +188,10 @@ struct FocalShared
     {
         float3 dir = sampleDirectionByDensities(rayOrigin, rayData.sg);
 
-        const uint lobeTypes = mi.getLobeTypes(sd);
-        const bool hasReflection = lobeTypes & uint(LobeType::Reflection);
-        const bool hasTransmission = lobeTypes & uint(LobeType::Transmission);
-        float NdotL = dot(sd.getOrientedFaceNormal(), dir);
-        // if ((NdotL <= kMinCosTheta && !hasTransmission) || (NdotL >= -kMinCosTheta && !hasReflection))
-        //     return false;
-
         rayOrigin = computeRayOrigin(sd.posW, dot(sd.faceN, dir) >= 0.f ? sd.faceN : -sd.faceN);
-        // rayOrigin = sd.computeRayOrigin(dot(dir, sd.faceN) >= 0.f);
-        // if ((sd.frontFacing && dot(dir, sd.faceN) <= 0.f) || (!sd.frontFacing && dot(dir, sd.faceN) <= 0.f)) {
-        //    rayOrigin = sd.computeRayOrigin(false);
-        //}
 
         rayData.origin = rayOrigin;
         rayData.direction = dir;
-
-        // float pdf = getDirectionPdf(rayOrigin, dir);
-        // float invPdf = 1 / pdf;
-        // rayData.thp *= mi.eval(sd, dir, rayData.sg) * invPdf;
 
         pdf = getMisPdf(sd, mi, rayOrigin, dir);
         rayData.thp *= mi.eval(sd, dir, rayData.sg) / pdf;
@@ -219,7 +204,7 @@ struct FocalShared
         \param[in,out] rayData Ray payload.
         \return True if the path continues.
     */
-    bool generateScatterRay( const ShadingData sd, const IMaterialInstance mi, float3 rayOrigin, inout ScatterRayData rayData, bool enableGuidedRays, out float pdf)
+    bool generateBsdfRay( const ShadingData sd, const IMaterialInstance mi, float3 rayOrigin, inout ScatterRayData rayData, bool enableGuidedRays, out float pdf)
     {
         BSDFProperties miProps = mi.getProperties(sd);
         pdf = 0;
@@ -233,10 +218,6 @@ struct FocalShared
                 rayData.origin = sd.computeRayOrigin(false);
             }
             rayData.direction = bsdfSample.wo;
-            //float guidedPdf = getDirectionPdf(rayData.origin, rayData.direction);
-            //rayData.thp *= mi.eval(sd, rayData.direction, rayData.sg) / mi.evalPdf(sd, rayData.direction, USE_IMPORTANCE_SAMPLING);
-            // float3 fwiwo_dotwon = bsdfSample.weight * bsdfSample.pdf;
-            // rayData.thp *= fwiwo_dotwon / bsdfSample.pdf;
             if (!enableGuidedRays)
             {
                 pdf = bsdfSample.pdf;
@@ -263,15 +244,10 @@ struct FocalShared
     {
         bool enableGuidedRays = enableGuidedRaysForMaterial(sd, mi);
         if (enableGuidedRays && sampleNext1D(rayData.sg) < guidedRayProb) {
-            // Generate scatter ray for the next path segment.
-            // The raygen shader will continue the path based on the returned payload.
             generateGuidedRay(sd, mi, rayOrigin, rayData, pdf);
-            // generateSphericalRay(sd, mi, rayOrigin, rayData);
             return true;
         } else {
-            // Generate scatter ray for the next path segment.
-            // The raygen shader will continue the path based on the returned payload.
-            return generateScatterRay(sd, mi, rayOrigin, rayData, enableGuidedRays, pdf);
+            return generateBsdfRay(sd, mi, rayOrigin, rayData, enableGuidedRays, pdf);
         }
     }
 

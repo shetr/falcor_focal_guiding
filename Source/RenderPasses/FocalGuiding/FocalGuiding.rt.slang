@@ -221,6 +221,8 @@ void handleHit(const HitInfo hit, inout ScatterRayData rayData)
     AABB box = AABB(gSceneBoundsMin, gSceneBoundsMax);
     FocalShared focalShared = FocalShared(box, gGuidedRayProb, gNodes, gNodesSize, gGlobalAccumulator);
     float pdf = 0;
+    // Generate scatter ray for the next path segment.
+    // The raygen shader will continue the path based on the returned payload.
     if (!focalShared.generateRay(sd, mi, rayOrigin, rayData, pdf))
     {
         rayData.terminated = true;
