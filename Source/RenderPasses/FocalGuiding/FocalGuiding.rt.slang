@@ -220,7 +220,8 @@ void handleHit(const HitInfo hit, inout ScatterRayData rayData)
 
     AABB box = AABB(gSceneBoundsMin, gSceneBoundsMax);
     FocalShared focalShared = FocalShared(box, gGuidedRayProb, gNodes, gNodesSize, gGlobalAccumulator);
-    if (!focalShared.generateRay(sd, mi, rayOrigin, rayData))
+    float pdf = 0;
+    if (!focalShared.generateRay(sd, mi, rayOrigin, rayData, pdf))
     {
         rayData.terminated = true;
         return;
@@ -286,7 +287,8 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
 
         // Prepare ray payload.
         ScatterRayData rayData = ScatterRayData(sg);
-        if (!focalShared.generateRay(sd, mi, rayOrigin, rayData))
+        float pdf = 0;
+        if (!focalShared.generateRay(sd, mi, rayOrigin, rayData, pdf))
         {
             rayData.terminated = true;
         }

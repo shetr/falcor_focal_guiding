@@ -11,6 +11,7 @@ import Utils.Sampling.SampleGenerator;
 import Rendering.Lights.LightHelpers;
 
 import DensityNode;
+import FocalShared;
 
 ParameterBlock<DensityNodes> gNodes;
 RWByteAddressBuffer gGlobalAccumulator;
@@ -42,40 +43,6 @@ static const uint kMaxBounces = MAX_BOUNCES;
 static const uint kMaxOctreeDepth = MAX_OCTREE_DEPTH;
 static const float3 kDefaultBackgroundColor = float3(0, 0, 0);
 static const float kRayTMax = FLT_MAX;
-
-/** Payload for scatter ray (up to 72B).
- */
-struct ScatterRayData
-{
-    float3 radiance;  ///< Accumulated outgoing radiance from path.
-    bool terminated;  ///< Set to true when path is terminated.
-    float3 thp;       ///< Current path throughput. This is updated at each path vertex.
-    uint pathLength;  ///< Path length in number of path segments (0 at origin, 1 at first secondary hit, etc.). Max 2^31.
-    float3 origin;    ///< Next path segment origin.
-    float3 direction; ///< Next path segment direction.
-
-    SampleGenerator sg; ///< Per-ray state for the sample generator (up to 16B).
-
-    /** Initializes ray payload with default parameters.
-     */
-    __init(SampleGenerator sg)
-    {
-        this.terminated = false;
-        this.pathLength = 0;
-        this.radiance = float3(0, 0, 0);
-        this.thp = float3(1, 1, 1);
-        this.origin = float3(0, 0, 0);
-        this.direction = float3(0, 0, 0);
-        this.sg = sg;
-    }
-};
-
-/** Payload for shadow ray.
- */
-struct ShadowRayData
-{
-    bool visible;
-};
 
 /** Setup ShadingData based on loaded vertex/material attributes for a hit point.
     \param[in] hit Hit information.
@@ -155,180 +122,6 @@ void traceScatterRay(inout ScatterRayData rayData)
 
     uint rayFlags = 0; // TODO: Set cull mode from the app
     TraceRay(gScene.rtAccel, rayFlags, 0xff /* instanceInclusionMask */, 0 /* hitIdx */, rayTypeCount, 0 /* missIdx */, ray, rayData);
-}
-
-float3 samplePointByDensities(out float pdf, inout SampleGenerator sg)
-{
-    uint nodeIndex = 0;
-    AABB box = AABB(gSceneBoundsMin, gSceneBoundsMax);
-    pdf = 1 / box.volume();
-
-    float globalAcc = gGlobalAccumulator.Load<float>(0);
-    float parentAcc = globalAcc;
-
-    uint depth = 0;
-    while (depth < MAX_OCTREE_DEPTH)
-    {
-        float r = sampleNext1D(sg);
-        float stop = r * parentAcc;
-        float acc = 0;
-        uint childIndex = 0;
-        DensityChild child;
-        for (childIndex = 0; childIndex < 8; ++childIndex) {
-            child = gNodes.getChildNode(nodeIndex, childIndex);
-            acc += child.accumulator;
-            if (stop < acc) {
-                break;
-            }
-        }
-        if (childIndex >= 8) {
-            childIndex = uint(r * 8);
-        }
-        int3 axisIndices = unpackOctreeChildIndex(childIndex);
-        AABB childBox = shrinkBox(box, axisIndices);
-        nodeIndex = child.index;
-        box = childBox;
-        if (child.isLeaf()) {
-            pdf *= child.accumulator / globalAcc;
-            break;
-        }
-        parentAcc = child.accumulator;
-        ++depth;
-    }
-    float3 rPos = sampleNext3D(sg);
-    return box.minPoint + rPos * box.extent();
-}
-
-float3 sampleDirectionByDensities(float3 origin, inout SampleGenerator sg)
-{
-    float pointPdf;
-    float3 samplePoint = samplePointByDensities(pointPdf, sg);
-    return normalize(samplePoint - origin);
-}
-
-float getDirectionPdf(float3 origin, float3 dir)
-{
-    float pdf = 0;
-    NodeTravRef nodesStack[MAX_OCTREE_DEPTH];
-    uint nodesStackSize = 0;
-    // push first node
-    nodesStack[nodesStackSize] = NodeTravRef(0);
-    ++nodesStackSize;
-    AABB box = AABB(gSceneBoundsMin, gSceneBoundsMax);
-
-    float totalVolume = box.volume();
-    float invGlobalAcc = 1 / gGlobalAccumulator.Load<float>(0);
-
-    uint failsafe = 0;
-    while (nodesStackSize > 0 && failsafe < 9 * gNodesSize)
-    {
-        uint topIndex = nodesStackSize - 1;
-        if (nodesStack[topIndex].child >= 8) {
-            // pop node
-            --nodesStackSize;
-            // correct the box
-            if (nodesStackSize > 0) {
-                topIndex = nodesStackSize - 1;
-                uint currChildIndex = nodesStack[topIndex].child - 1;
-                int3 axisIndices = unpackOctreeChildIndex(currChildIndex);
-                box = extendBox(box, axisIndices);
-            }
-        }
-        else
-        {
-            uint nodeIndex = nodesStack[topIndex].node;
-            uint childIndex = nodesStack[topIndex].child;
-            DensityChild child = gNodes.getChildNode(nodeIndex, childIndex);
-            int3 axisIndices = unpackOctreeChildIndex(childIndex);
-            AABB childBox = shrinkBox(box, axisIndices);
-
-            float2 nearFar;
-            bool intersected = intersectRayAABB(origin, dir, childBox.minPoint, childBox.maxPoint, nearFar);
-            if (intersected) {
-                float near = length(dir * nearFar.x);
-                float far = length(dir * nearFar.y);
-                float densityTimesVolume = child.accumulator * invGlobalAcc;
-                if (child.isLeaf() || nodesStackSize >= MAX_OCTREE_DEPTH) {
-                    // TODO: maybe divide the volume by total volume
-                    pdf += (pow(nearFar.y, 3) - pow(nearFar.x, 3)) * densityTimesVolume / (3 * childBox.volume());
-                } else {
-                    box = childBox;
-                    // push node
-                    nodesStack[nodesStackSize] = NodeTravRef(child.index);
-                    ++nodesStackSize;
-                }
-            }
-
-            ++nodesStack[topIndex].child;
-        }
-        ++failsafe;
-    }
-    return pdf;
-}
-
-float getMisWeight(const ShadingData sd, const IMaterialInstance mi, float3 origin, float3 dir, out float guidedPdf)
-{
-    float bsdfPdf = mi.evalPdf(sd, dir, true);
-    guidedPdf = getDirectionPdf(origin, dir);
-    return 1 / (gGuidedRayProb * guidedPdf + (1 - gGuidedRayProb) * bsdfPdf);
-}
-
-void generateGuidedRay(const ShadingData sd, const IMaterialInstance mi, float3 rayOrigin, inout ScatterRayData rayData)
-{
-    float3 dir = sampleDirectionByDensities(rayOrigin, rayData.sg);
-
-    const uint lobeTypes = mi.getLobeTypes(sd);
-    const bool hasReflection = lobeTypes & uint(LobeType::Reflection);
-    const bool hasTransmission = lobeTypes & uint(LobeType::Transmission);
-    float NdotL = dot(sd.getOrientedFaceNormal(), dir);
-    // if ((NdotL <= kMinCosTheta && !hasTransmission) || (NdotL >= -kMinCosTheta && !hasReflection))
-    //     return false;
-
-    rayOrigin = computeRayOrigin(sd.posW, dot(sd.faceN, dir) >= 0.f ? sd.faceN : -sd.faceN);
-    // rayOrigin = sd.computeRayOrigin(dot(dir, sd.faceN) >= 0.f);
-    // if ((sd.frontFacing && dot(dir, sd.faceN) <= 0.f) || (!sd.frontFacing && dot(dir, sd.faceN) <= 0.f)) {
-    //    rayOrigin = sd.computeRayOrigin(false);
-    //}
-
-    rayData.origin = rayOrigin;
-    rayData.direction = dir;
-
-    // float pdf = getDirectionPdf(rayOrigin, dir);
-    // float invPdf = 1 / pdf;
-    // rayData.thp *= mi.eval(sd, dir, rayData.sg) * invPdf;
-
-    float guidedPdf;
-    float misWeight = getMisWeight(sd, mi, rayOrigin, dir, guidedPdf);
-    rayData.thp *= mi.eval(sd, dir, rayData.sg) * misWeight;
-}
-
-/** Generate a new scatter ray or terminate.
-    \param[in] sd Shading data.
-    \param[in] mi Material instance.
-    \param[in] isCurveHit True if on curve hit.
-    \param[in] rayOrigin Ray origin for the new ray.
-    \param[in,out] rayData Ray payload.
-    \return True if the path continues.
-*/
-bool generateScatterRay(const ShadingData sd, const IMaterialInstance mi, bool isCurveHit, float3 rayOrigin, inout ScatterRayData rayData)
-{
-    // Sample material.
-    BSDFSample bsdfSample;
-    if (mi.sample(sd, rayData.sg, bsdfSample, true))
-    {
-        rayData.origin = rayOrigin;
-        if (bsdfSample.isLobe(LobeType::Transmission))
-        {
-            rayData.origin = sd.computeRayOrigin(false);
-        }
-        rayData.direction = bsdfSample.wo;
-        float guidedPdf;
-        float misWeight = getMisWeight(sd, mi, rayData.origin, rayData.direction, guidedPdf);
-        rayData.thp *= mi.eval(sd, rayData.direction, rayData.sg) * misWeight;
-        return any(rayData.thp > 0.f);
-    }
-
-    return false;
 }
 
 void storeDensitiesNoNarrowing(
@@ -610,19 +403,13 @@ void handleHit(const HitInfo hit, inout ScatterRayData rayData)
     // Compute ray origin for new rays spawned from the hit.
     float3 rayOrigin = sd.computeRayOrigin();
 
-    if (sampleNext1D(rayData.sg) < gGuidedRayProb) {
-        // Generate scatter ray for the next path segment.
-        // The raygen shader will continue the path based on the returned payload.
-        generateGuidedRay(sd, mi, rayOrigin, rayData);
-        // generateSphericalRay(sd, mi, rayOrigin, rayData);
-    } else {
-        // Generate scatter ray for the next path segment.
-        // The raygen shader will continue the path based on the returned payload.
-        if (!generateScatterRay(sd, mi, isCurveHit, rayOrigin, rayData))
-        {
-            rayData.terminated = true;
-            return;
-        }
+    AABB box = AABB(gSceneBoundsMin, gSceneBoundsMax);
+    FocalShared focalShared = FocalShared(box, gGuidedRayProb, gNodes, gNodesSize, gGlobalAccumulator);
+    float pdf = 0;
+    if (!focalShared.generateRay(sd, mi, rayOrigin, rayData, pdf))
+    {
+        rayData.terminated = true;
+        return;
     }
 
     rayData.pathLength++;
@@ -663,16 +450,15 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
             outColor += mi.getProperties(sd).emission;
         }
 
+        AABB box = AABB(gSceneBoundsMin, gSceneBoundsMax);
+        FocalShared focalShared = FocalShared(box, gGuidedRayProb, gNodes, gNodesSize, gGlobalAccumulator);
+
         // Prepare ray payload.
         ScatterRayData rayData = ScatterRayData(sg);
-
-        if (sampleNext1D(rayData.sg) < gGuidedRayProb) {
-            // Generate scatter ray for the next path segment.
-            // The raygen shader will continue the path based on the returned payload.
-            generateGuidedRay(sd, mi, rayOrigin, rayData);
-        } else {
-            // Generate scatter ray.
-            if (!generateScatterRay(sd, mi, false, rayOrigin, rayData)) rayData.terminated = true;
+        float pdf = 0;
+        if (!focalShared.generateRay(sd, mi, rayOrigin, rayData, pdf))
+        {
+            rayData.terminated = true;
         }
 
         float3 origins[MAX_BOUNCES + 2];
