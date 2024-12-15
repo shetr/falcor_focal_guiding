@@ -45,6 +45,42 @@ struct ScatterRayData
     }
 };
 
+/** Traces a shadow ray towards a light source.
+    \param[in] origin Ray origin for the shadow ray.
+    \param[in] dir Direction from shading point towards the light source (normalized).
+    \param[in] distance Distance to the light source.
+    \return True if light is visible, false otherwise.
+*/
+bool traceShadowRay(float3 origin, float3 dir, float distance)
+{
+    RayDesc ray;
+    ray.Origin = origin;
+    ray.Direction = dir;
+    ray.TMin = 0.f;
+    ray.TMax = distance;
+
+    ShadowRayData rayData;
+    rayData.visible = false; // Set to true by miss shader if ray is not terminated before
+    TraceRay( gScene.rtAccel, RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH, 0xff /* instanceInclusionMask */, 1 /* hitIdx */, rayTypeCount, 1 /* missIdx */, ray, rayData );
+
+    return rayData.visible;
+}
+
+/** Traces a scatter ray based on ray parameters stored in the ray payload.
+    \param[in] rayData Describes the ray parameters. The struct is modified based on the result.
+*/
+void traceScatterRay(inout ScatterRayData rayData)
+{
+    RayDesc ray;
+    ray.Origin = rayData.origin;
+    ray.Direction = rayData.direction;
+    ray.TMin = 0.f;
+    ray.TMax = FLT_MAX;
+
+    uint rayFlags = 0; // TODO: Set cull mode from the app
+    TraceRay(gScene.rtAccel, rayFlags, 0xff /* instanceInclusionMask */, 0 /* hitIdx */, rayTypeCount, 0 /* missIdx */, ray, rayData);
+}
+
 struct FocalShared
 {
     AABB sceneBox;
