@@ -424,4 +424,55 @@ struct FocalShared
         rayData.thp *= mi.eval(sd, dir, rayData.sg) * invPdf;
     }
 
+    /** Process a hit.
+        Loads the shading data, samples analytic lights and samples a new scatter ray.
+        Terminates the path if maximum number of bounces is reached.
+        \param[in] hit Hit info.
+        \param[in,out] rayData Ray payload.
+
+    */
+    void handleHit(const HitInfo hit, inout ScatterRayData rayData, bool useAnalyticLights, bool useEmissiveLights, bool computeDirect)
+    {
+        let lod = ExplicitLodTextureSampler(0.f);
+
+        // Load shading data.
+        ShadingData sd = loadShadingData(hit, rayData.origin, rayData.direction, lod);
+
+        // Create material instance.
+        let mi = gScene.materials.getMaterialInstance(sd, lod);
+
+        // Add emitted light.
+        if (useEmissiveLights && (computeDirect || rayData.pathLength > 0))
+        {
+            rayData.radiance += rayData.thp * mi.getProperties(sd).emission;
+        }
+
+        // Check whether to terminate based on max depth.
+        if (rayData.pathLength >= MAX_BOUNCES)
+        {
+            rayData.terminated = true;
+            return;
+        }
+
+        // Compute ray origin for new rays spawned from the hit.
+        float3 rayOrigin = sd.computeRayOrigin();
+
+        // Add contribution of direct light from analytic lights.
+        if (useAnalyticLights)
+        {
+            float3 Lr = evalDirectAnalytic(sd, mi, rayData.sg);
+            rayData.radiance += rayData.thp * Lr;
+        }
+
+        float pdf = 0;
+        // Generate scatter ray for the next path segment.
+        // The raygen shader will continue the path based on the returned payload.
+        if (!generateRay(sd, mi, rayOrigin, rayData, pdf))
+        {
+            rayData.terminated = true;
+            return;
+        }
+
+        rayData.pathLength++;
+    }
 }

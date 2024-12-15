@@ -277,53 +277,6 @@ void storeDensitiesWithNarrowing(
     }
 }
 
-/** Process a hit.
-    Loads the shading data, samples analytic lights and samples a new scatter ray.
-    Terminates the path if maximum number of bounces is reached.
-    \param[in] hit Hit info.
-    \param[in,out] rayData Ray payload.
-
-*/
-void handleHit(const HitInfo hit, inout ScatterRayData rayData)
-{
-    let lod = ExplicitLodTextureSampler(0.f);
-
-    // Load shading data.
-    ShadingData sd = loadShadingData(hit, rayData.origin, rayData.direction, lod);
-
-    // Create material instance.
-    let mi = gScene.materials.getMaterialInstance(sd, lod);
-
-    // Add emitted light.
-    if (rayData.pathLength > 0)
-    {
-        rayData.radiance += rayData.thp * mi.getProperties(sd).emission;
-    }
-
-    // Check whether to terminate based on max depth.
-    if (rayData.pathLength >= MAX_BOUNCES)
-    {
-        rayData.terminated = true;
-        return;
-    }
-
-    // Compute ray origin for new rays spawned from the hit.
-    float3 rayOrigin = sd.computeRayOrigin();
-
-    AABB box = AABB(gSceneBoundsMin, gSceneBoundsMax);
-    FocalShared focalShared = FocalShared(box, gGuidedRayProb, gNodes, gNodesSize, gGlobalAccumulator);
-    float pdf = 0;
-    // Generate scatter ray for the next path segment.
-    // The raygen shader will continue the path based on the returned payload.
-    if (!focalShared.generateRay(sd, mi, rayOrigin, rayData, pdf))
-    {
-        rayData.terminated = true;
-        return;
-    }
-
-    rayData.pathLength++;
-}
-
 float3 tracePath(const uint2 pixel, const uint2 frameDim)
 {
     float3 outColor = float3(0.f);
@@ -457,7 +410,9 @@ void scatterTriangleMeshClosestHit(inout ScatterRayData rayData, BuiltInTriangle
     triangleHit.instanceID = getGeometryInstanceID();
     triangleHit.primitiveIndex = PrimitiveIndex();
     triangleHit.barycentrics = attribs.barycentrics;
-    handleHit(HitInfo(triangleHit), rayData);
+    AABB box = AABB(gSceneBoundsMin, gSceneBoundsMax);
+    FocalShared focalShared = FocalShared(box, gGuidedRayProb, gNodes, gNodesSize, gGlobalAccumulator);
+    focalShared.handleHit(HitInfo(triangleHit), rayData, false, true, true);
 }
 
 [shader("anyhit")]
