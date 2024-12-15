@@ -218,9 +218,6 @@ void FocalGuiding::renderUI(Gui::Widgets& widget)
     dirty |= widget.checkbox("Evaluate direct illumination", mComputeDirect);
     widget.tooltip("Compute direct illumination.\nIf disabled only indirect is computed (when max bounces > 0).", true);
 
-    dirty |= widget.checkbox("Use importance sampling", mUseImportanceSampling);
-    widget.tooltip("Use importance sampling for materials", true);
-
     // If rendering options that modify the output have changed, set flag to indicate that.
     // In execute() we will pass the flag to other passes for reset of temporal data etc.
     if (dirty)
