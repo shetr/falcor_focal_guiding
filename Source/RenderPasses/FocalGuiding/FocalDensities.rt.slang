@@ -286,7 +286,6 @@ void storeDensitiesWithNarrowing(
 */
 void handleHit(const HitInfo hit, inout ScatterRayData rayData)
 {
-    const bool isCurveHit = hit.getType() == HitType::Curve;
     let lod = ExplicitLodTextureSampler(0.f);
 
     // Load shading data.
