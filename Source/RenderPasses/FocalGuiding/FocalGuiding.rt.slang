@@ -220,21 +220,10 @@ void handleHit(const HitInfo hit, inout ScatterRayData rayData)
 
     AABB box = AABB(gSceneBoundsMin, gSceneBoundsMax);
     FocalShared focalShared = FocalShared(box, gGuidedRayProb, gNodes, gNodesSize, gGlobalAccumulator);
-    bool enableGuidedRays = focalShared.enableGuidedRaysForMaterial(sd, mi);
-    if (enableGuidedRays && sampleNext1D(rayData.sg) < gGuidedRayProb) {
-        // Generate scatter ray for the next path segment.
-        // The raygen shader will continue the path based on the returned payload.
-        focalShared.generateGuidedRay(sd, mi, rayOrigin, rayData);
-        //generateSphericalRay(sd, mi, rayOrigin, rayData);
-    } else {
-        // Generate scatter ray for the next path segment.
-        // The raygen shader will continue the path based on the returned payload.
-        if (!focalShared.generateScatterRay(sd, mi, isCurveHit, rayOrigin, rayData, enableGuidedRays))
-        {
-            rayData.terminated = true;
-            return;
-        }
-
+    if (!focalShared.generateRay(sd, mi, rayOrigin, rayData))
+    {
+        rayData.terminated = true;
+        return;
     }
 
     rayData.pathLength++;
@@ -297,17 +286,9 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
 
         // Prepare ray payload.
         ScatterRayData rayData = ScatterRayData(sg);
-
-        bool enableGuidedRays = focalShared.enableGuidedRaysForMaterial(sd, mi);
-        if (enableGuidedRays && sampleNext1D(rayData.sg) < gGuidedRayProb) {
-            // Generate scatter ray for the next path segment.
-            // The raygen shader will continue the path based on the returned payload.
-            focalShared.generateGuidedRay(sd, mi, rayOrigin, rayData);
-            //generateSphericalRay(sd, mi, rayOrigin, rayData);
-        } else {
-            // Generate scatter ray.
-            if (!focalShared.generateScatterRay(sd, mi, false, rayOrigin, rayData, enableGuidedRays))
-                rayData.terminated = true;
+        if (!focalShared.generateRay(sd, mi, rayOrigin, rayData))
+        {
+            rayData.terminated = true;
         }
 
         // Follow path into the scene and compute its total contribution.

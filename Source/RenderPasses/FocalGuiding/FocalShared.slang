@@ -215,12 +215,11 @@ struct FocalShared
     /** Generate a new scatter ray or terminate.
         \param[in] sd Shading data.
         \param[in] mi Material instance.
-        \param[in] isCurveHit True if on curve hit.
         \param[in] rayOrigin Ray origin for the new ray.
         \param[in,out] rayData Ray payload.
         \return True if the path continues.
     */
-    bool generateScatterRay(const ShadingData sd, const IMaterialInstance mi, bool isCurveHit, float3 rayOrigin, inout ScatterRayData rayData, bool enableGuidedRays)
+    bool generateScatterRay(const ShadingData sd, const IMaterialInstance mi, float3 rayOrigin, inout ScatterRayData rayData, bool enableGuidedRays)
     {
         BSDFProperties miProps = mi.getProperties(sd);
         // Sample material.
@@ -256,6 +255,22 @@ struct FocalShared
     {
         BSDFProperties miProps = mi.getProperties(sd);
         return miProps.roughness > 0.1 && dot(miProps.diffuseTransmissionAlbedo, float3(1)) == 0 && dot(miProps.specularTransmissionAlbedo, float3(1)) == 0;
+    }
+
+    bool generateRay(const ShadingData sd, const IMaterialInstance mi, float3 rayOrigin, inout ScatterRayData rayData )
+    {
+        bool enableGuidedRays = enableGuidedRaysForMaterial(sd, mi);
+        if (enableGuidedRays && sampleNext1D(rayData.sg) < guidedRayProb) {
+            // Generate scatter ray for the next path segment.
+            // The raygen shader will continue the path based on the returned payload.
+            generateGuidedRay(sd, mi, rayOrigin, rayData);
+            // generateSphericalRay(sd, mi, rayOrigin, rayData);
+            return true;
+        } else {
+            // Generate scatter ray for the next path segment.
+            // The raygen shader will continue the path based on the returned payload.
+            return generateScatterRay(sd, mi, rayOrigin, rayData, enableGuidedRays);
+        }
     }
 
     // spherical ray sampling
