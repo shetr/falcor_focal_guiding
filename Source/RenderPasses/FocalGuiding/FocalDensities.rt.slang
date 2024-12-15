@@ -30,63 +30,7 @@ cbuffer CB
     float gGuidedRayProb;
 }
 
-// Inputs
-Texture2D<PackedHitInfo> gVBuffer;
-Texture2D<float4> gViewW; // Optional
-
-// Outputs
-RWTexture2D<float4> gOutputColor;
-
-// Static configuration based on defines set from the host.
-#define is_valid(name) (is_valid_##name != 0)
-static const uint kMaxBounces = MAX_BOUNCES;
-static const uint kMaxOctreeDepth = MAX_OCTREE_DEPTH;
 static const float3 kDefaultBackgroundColor = float3(0, 0, 0);
-static const float kRayTMax = FLT_MAX;
-
-/** Setup ShadingData based on loaded vertex/material attributes for a hit point.
-    \param[in] hit Hit information.
-    \param[in] rayOrigin Ray origin.
-    \param[in] rayDir Normalized ray direction.
-    \param[in] lod Method for computing texture level-of-detail.
-    \return ShadingData struct.
-*/
-ShadingData loadShadingData(const HitInfo hit, const float3 rayOrigin, const float3 rayDir, const ITextureSampler lod)
-{
-    VertexData v = {};
-    uint materialID = {};
-
-#if SCENE_HAS_GEOMETRY_TYPE(GEOMETRY_TYPE_TRIANGLE_MESH)
-    if (hit.getType() == HitType::Triangle)
-    {
-        const TriangleHit triangleHit = hit.getTriangleHit();
-        v = gScene.getVertexData(triangleHit);
-        materialID = gScene.getMaterialID(triangleHit.instanceID);
-    }
-#endif
-
-    ShadingData sd = gScene.materials.prepareShadingData(v, materialID, -rayDir, lod);
-
-    return sd;
-}
-
-/** Returns the primary ray's direction.
- */
-float3 getPrimaryRayDir(uint2 launchIndex, uint2 launchDim, const Camera camera)
-{
-    if (is_valid(gViewW))
-    {
-        // If we have the view vector bound as a buffer, just fetch it. No need to compute anything.
-        return -gViewW[launchIndex].xyz;
-    }
-    else
-    {
-        // Compute the view vector. This must exactly match what the G-buffer pass is doing (jitter etc.).
-        // Note that we do not take depth-of-field into account as it would require exactly matching the
-        // sample generator between the passes, which is error prone. The host side will issue a warning instead.
-        return camera.computeRayPinhole(launchIndex, launchDim).dir;
-    }
-}
 
 void storeDensitiesNoNarrowing(
     float3 rayOrigin,
@@ -358,7 +302,7 @@ void handleHit(const HitInfo hit, inout ScatterRayData rayData)
     }
 
     // Check whether to terminate based on max depth.
-    if (rayData.pathLength >= kMaxBounces)
+    if (rayData.pathLength >= MAX_BOUNCES)
     {
         rayData.terminated = true;
         return;
@@ -410,7 +354,7 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
         // Compute ray origin for new rays spawned from the G-buffer.
         float3 rayOrigin = sd.computeRayOrigin();
 
-        if (true)//kComputeDirect)
+        if (true)//COMPUTE_DIRECT)
         {
             // Always output directly emitted light, independent of whether emissive materials are treated as light sources or not.
             outColor += mi.getProperties(sd).emission;
@@ -432,7 +376,7 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
 
         // Follow path into the scene and compute its total contribution.
         int depth = 0;
-        for (; depth <= kMaxBounces && !rayData.terminated; depth++)
+        for (; depth <= MAX_BOUNCES && !rayData.terminated; depth++)
         {
             origins[depth] = rayData.origin;
             // Trace scatter ray. If it hits geometry, the closest hit shader samples

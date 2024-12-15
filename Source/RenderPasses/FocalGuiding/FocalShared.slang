@@ -11,6 +11,16 @@ import Rendering.Lights.LightHelpers;
 
 import DensityNode;
 
+// Inputs
+Texture2D<PackedHitInfo> gVBuffer;
+Texture2D<float4> gViewW; // Optional
+
+// Outputs
+RWTexture2D<float4> gOutputColor;
+
+// Static configuration based on defines set from the host.
+#define is_valid(name) (is_valid_##name != 0)
+
 /** Payload for shadow ray.
  */
 struct ShadowRayData
@@ -79,6 +89,89 @@ void traceScatterRay(inout ScatterRayData rayData)
 
     uint rayFlags = 0; // TODO: Set cull mode from the app
     TraceRay(gScene.rtAccel, rayFlags, 0xff /* instanceInclusionMask */, 0 /* hitIdx */, rayTypeCount, 0 /* missIdx */, ray, rayData);
+}
+
+/** Setup ShadingData based on loaded vertex/material attributes for a hit point.
+    \param[in] hit Hit information.
+    \param[in] rayOrigin Ray origin.
+    \param[in] rayDir Normalized ray direction.
+    \param[in] lod Method for computing texture level-of-detail.
+    \return ShadingData struct.
+*/
+ShadingData loadShadingData(const HitInfo hit, const float3 rayOrigin, const float3 rayDir, const ITextureSampler lod)
+{
+    VertexData v = {};
+    uint materialID = {};
+
+#if SCENE_HAS_GEOMETRY_TYPE(GEOMETRY_TYPE_TRIANGLE_MESH)
+    if (hit.getType() == HitType::Triangle)
+    {
+        const TriangleHit triangleHit = hit.getTriangleHit();
+        v = gScene.getVertexData(triangleHit);
+        materialID = gScene.getMaterialID(triangleHit.instanceID);
+    }
+#endif
+
+    ShadingData sd = gScene.materials.prepareShadingData(v, materialID, -rayDir, lod);
+
+    return sd;
+}
+
+/** Returns the primary ray's direction.
+ */
+float3 getPrimaryRayDir(uint2 launchIndex, uint2 launchDim, const Camera camera)
+{
+    if (is_valid(gViewW))
+    {
+        // If we have the view vector bound as a buffer, just fetch it. No need to compute anything.
+        return -gViewW[launchIndex].xyz;
+    }
+    else
+    {
+        // Compute the view vector. This must exactly match what the G-buffer pass is doing (jitter etc.).
+        // Note that we do not take depth-of-field into account as it would require exactly matching the
+        // sample generator between the passes, which is error prone. The host side will issue a warning instead.
+        return camera.computeRayPinhole(launchIndex, launchDim).dir;
+    }
+}
+
+/** Evaluates the direct illumination from analytic lights.
+    This function samples Falcor's light list uniformly with one shadow ray.
+    \param[in] sd Shading data.
+    \param[in] mi Material instance.
+    \param[in,out] sg SampleGenerator object.
+    \return Outgoing radiance in view direction.
+*/
+float3 evalDirectAnalytic(const ShadingData sd, const IMaterialInstance mi, inout SampleGenerator sg)
+{
+    const uint lightCount = gScene.getLightCount();
+    if (lightCount == 0) return float3(0.f);
+
+    // Pick one of the analytic light sources randomly with equal probability.
+    const uint lightIndex = min(uint(sampleNext1D(sg) * lightCount), lightCount - 1);
+    float invPdf = lightCount; // Light selection pdf = 1.0 / lightCount.
+
+    // Sample local light source.
+    AnalyticLightSample ls;
+    if (!sampleLight(sd.posW, gScene.getLight(lightIndex), sg, ls)) return float3(0.f);
+
+    // Reject sample if not in the hemisphere of a BSDF lobe.
+    const uint lobeTypes = mi.getLobeTypes(sd);
+    const bool hasReflection = lobeTypes & uint(LobeType::Reflection);
+    const bool hasTransmission = lobeTypes & uint(LobeType::Transmission);
+    float NdotL = dot(sd.getOrientedFaceNormal(), ls.dir);
+    if ((NdotL <= kMinCosTheta && !hasTransmission) || (NdotL >= -kMinCosTheta && !hasReflection))
+        return float3(0.f);
+
+    // Get origin with offset applied in direction of the geometry normal to avoid self-intersection.
+    const float3 origin = computeRayOrigin(sd.posW, dot(sd.faceN, ls.dir) >= 0.f ? sd.faceN : -sd.faceN);
+
+    // Test visibility by tracing a shadow ray.
+    bool V = traceShadowRay(origin, ls.dir, ls.distance);
+    if (!V) return float3(0.f);
+
+    // Evaluate contribution.
+    return mi.eval(sd, ls.dir, sg) * ls.Li * invPdf;
 }
 
 struct FocalShared
