@@ -220,10 +220,9 @@ struct FocalShared
         \param[in,out] rayData Ray payload.
         \return True if the path continues.
     */
-    bool generateScatterRay(const ShadingData sd, const IMaterialInstance mi, bool isCurveHit, float3 rayOrigin, inout ScatterRayData rayData)
+    bool generateScatterRay(const ShadingData sd, const IMaterialInstance mi, bool isCurveHit, float3 rayOrigin, inout ScatterRayData rayData, bool enableGuidedRays)
     {
         BSDFProperties miProps = mi.getProperties(sd);
-        bool enableGuidedRays = miProps.roughness > 0.1 || !sd.frontFacing;
         // Sample material.
         BSDFSample bsdfSample;
         if (mi.sample(sd, rayData.sg, bsdfSample, USE_IMPORTANCE_SAMPLING))
@@ -238,7 +237,7 @@ struct FocalShared
             //rayData.thp *= mi.eval(sd, rayData.direction, rayData.sg) / mi.evalPdf(sd, rayData.direction, USE_IMPORTANCE_SAMPLING);
             // float3 fwiwo_dotwon = bsdfSample.weight * bsdfSample.pdf;
             // rayData.thp *= fwiwo_dotwon / bsdfSample.pdf;
-            if (!enableGuidedRays || bsdfSample.isLobe(LobeType::Transmission))
+            if (!enableGuidedRays)
             {
                 rayData.thp *= bsdfSample.weight;
             }
