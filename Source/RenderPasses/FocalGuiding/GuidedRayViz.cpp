@@ -86,6 +86,7 @@ void GuidedRayViz::execute(RenderContext* pRenderContext, const RenderData& rend
         auto var = mpVars->getRootVar();
         var["PerFrameCB"]["gColor"] = mLinesColor;
         var["PerFrameCB"]["gShadedLines"] = mShadedLines;
+        var["PerFrameCB"]["gUseIntensity"] = mUseIntensity;
 
         mpRayScene->rasterize(pRenderContext, mpGraphicsState.get(), mpVars.get(), mpRasterState, mpRasterState);
     }
@@ -102,6 +103,7 @@ void GuidedRayViz::renderUI(Gui::Widgets& widget)
     }
     widget.rgbaColor("Lines color", mLinesColor);
     widget.checkbox("Shaded lines", mShadedLines);
+    widget.checkbox("Use intensity", mUseIntensity);
 }
 
 void GuidedRayViz::setScene(RenderContext* pRenderContext, const ref<Scene>& pScene)
@@ -178,12 +180,19 @@ void GuidedRayViz::generateRaysGeometry(uint linesPathLenght)
     sceneBuilder.addMaterial(meshMat);
     mesh.pMaterial = meshMat;
 
+    float maxIntensity = 0.0;
+    for (uint i = 0; i < mGuidedRaysSize; ++i)
+    {
+        GuidedRayLine rayLine = rayNodes[i];
+        maxIntensity = std::max(maxIntensity, colorToIntensity(rayLine.color));
+    }
+
     int index = 0;
     for (uint i = 0; i < mGuidedRaysSize; ++i)
     {
         GuidedRayLine rayLine = rayNodes[i];
         //createLine(mesh, rayLine, index);
-        createTube(mesh, rayLine, index, linesPathLenght == 1);
+        createTube(mesh, rayLine, maxIntensity, index, linesPathLenght == 1);
     }
 
     auto meshId = sceneBuilder.addProcessedMesh(mesh);
@@ -211,11 +220,12 @@ void GuidedRayViz::createLine(SceneBuilder::ProcessedMesh& mesh, GuidedRayLine r
     mesh.indexCount += 2;
 }
 
-void GuidedRayViz::createTube(SceneBuilder::ProcessedMesh& mesh, GuidedRayLine rayLine, int& index, bool scaleLength)
+void GuidedRayViz::createTube(SceneBuilder::ProcessedMesh& mesh, GuidedRayLine rayLine, float maxIntensity, int& index, bool scaleLength)
 {
     int numSegments = 6;
     float lineWidth = 0.002f * mLineWidthScale;
     float lenghtScale = scaleLength ? mLineLengthScale : 1.0;
+    float intensity = colorToIntensity(rayLine.color) / maxIntensity;
 
     float3 s = rayLine.pos1;
     float3 diff = rayLine.pos2 - rayLine.pos1;
@@ -242,13 +252,14 @@ void GuidedRayViz::createTube(SceneBuilder::ProcessedMesh& mesh, GuidedRayLine r
         float3 n1 = u1 * uDir + v1 * vDir;
         float3 n2 = u2 * uDir + v2 * vDir;
 
-        createQuad(mesh, index, x11, x12, x21, x22, n1, n1, n2, n2);
+        createQuad(mesh, index, intensity, x11, x12, x21, x22, n1, n1, n2, n2);
     }
 }
 
 void GuidedRayViz::createQuad(
     SceneBuilder::ProcessedMesh& mesh,
     int& index,
+    float intensity,
     float3 x11,
     float3 x12,
     float3 x21,
@@ -259,10 +270,10 @@ void GuidedRayViz::createQuad(
     float3 n22
 )
 {
-    mesh.staticData.push_back({x11, n11, float4(0.0f), float2(0.0f), 0.0f});
-    mesh.staticData.push_back({x12, n12, float4(0.0f), float2(0.0f), 0.0f});
-    mesh.staticData.push_back({x21, n21, float4(0.0f), float2(0.0f), 0.0f});
-    mesh.staticData.push_back({x22, n22, float4(0.0f), float2(0.0f), 0.0f});
+    mesh.staticData.push_back({x11, n11, float4(0.0f), float2(intensity, 0.0f), 0.0f});
+    mesh.staticData.push_back({x12, n12, float4(0.0f), float2(intensity, 0.0f), 0.0f});
+    mesh.staticData.push_back({x21, n21, float4(0.0f), float2(intensity, 0.0f), 0.0f});
+    mesh.staticData.push_back({x22, n22, float4(0.0f), float2(intensity, 0.0f), 0.0f});
     mesh.indexData.push_back(index + 0);
     mesh.indexData.push_back(index + 1);
     mesh.indexData.push_back(index + 2);
@@ -294,4 +305,9 @@ float3 GuidedRayViz::getPerpendicualrTo(float3 dir)
         v = float3(-dir.z / length, 0, dir.x / length);
     }
     return v;
+}
+
+float GuidedRayViz::colorToIntensity(float3 color)
+{
+    return dot(float3(0.299, 0.587, 0.114), color);
 }

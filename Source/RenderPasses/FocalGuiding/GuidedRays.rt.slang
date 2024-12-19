@@ -93,20 +93,21 @@ float3 tracePath(const uint2 inPixel, const uint2 frameDim)
             {
                 gGuidedRayLines[rayIndex].pos1 = rayData.origin;
                 gGuidedRayLines[rayIndex].pos2 = rayData.origin + rayData.direction * prob;
-                gGuidedRayLines[rayIndex].color = rayData.radiance;
-
-                rayData = ScatterRayData(rayData.sg);
+                gGuidedRayLines[rayIndex].color = float3(prob);
             }
             else
             {
                 for (int l = 0; l < gLinesPathLenght; l++)
                 {
                     gGuidedRayLines[rayIndex * gLinesPathLenght + l].pos1 = rayData.origin;
-                    gGuidedRayLines[rayIndex * gLinesPathLenght + l].color = rayData.radiance;
                     traceScatterRay(rayData);
                     gGuidedRayLines[rayIndex * gLinesPathLenght + l].pos2 = rayData.origin;
                 }
-                rayData = ScatterRayData(rayData.sg);
+
+                for (int l = 0; l < gLinesPathLenght; l++)
+                {
+                    gGuidedRayLines[rayIndex * gLinesPathLenght + l].color = rayData.radiance;
+                }
             }
         }
     }

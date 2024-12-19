@@ -29,13 +29,15 @@ private:
     void prepareVars();
     void generateRaysGeometry(uint linesPathLenght);
     void createLine(SceneBuilder::ProcessedMesh& mesh, GuidedRayLine rayLine, int& index);
-    void createTube(SceneBuilder::ProcessedMesh& mesh, GuidedRayLine rayLine, int& index, bool scaleLength);
+    void createTube(SceneBuilder::ProcessedMesh& mesh, GuidedRayLine rayLine, float maxIntensity, int& index, bool scaleLength);
     void createQuad(
         SceneBuilder::ProcessedMesh& mesh,
         int& index,
+        float intensity,
         float3 x11, float3 x12, float3 x21, float3 x22, float3 n11, float3 n12, float3 n21, float3 n22
     );
     float3 getPerpendicualrTo(float3 dir);
+    float colorToIntensity(float3 color);
 
     uint mMaxGuidedRaysSize = 1000;
     uint mGuidedRaysSize = 10;
@@ -44,6 +46,7 @@ private:
     ref<Buffer> mGuidedRays;
     bool mComputeRays = true;
     float4 mLinesColor = float4(1, 1, 0, 1);
+    bool mUseIntensity = false;
     bool mShadedLines = false;
     bool mShiftPressed = false;
 
