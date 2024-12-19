@@ -22,6 +22,7 @@ RWByteAddressBuffer gOutGlobalAccumulator;
 cbuffer CB
 {
     uint gNodesSize;
+    bool gUseRelativeContributions;
     float gUseNarrowing;
     float3 gSceneBoundsMin;
     float3 gSceneBoundsMax;
@@ -339,23 +340,27 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
         }
         int depthCount = depth;
         origins[depthCount] = rayData.origin;
-        for (int depth = depthCount - 1; depth > 0; depth--) {
-            contributions[depth] -= contributions[depth - 1];
-        }
-        for (int depth = depthCount - 2; depth >= 0; depth--) {
-            contributions[depth] += contributions[depth + 1];
+        if (gUseRelativeContributions)
+        {
+            for (int depth = depthCount - 1; depth > 0; depth--) {
+                contributions[depth] -= contributions[depth - 1];
+            }
+            for (int depth = depthCount - 2; depth >= 0; depth--) {
+                contributions[depth] += contributions[depth + 1];
+            }
         }
         for (int depth = 0; depth < depthCount; depth++) {
             float3 origin = origins[depth];
             float3 hitPos = origins[depth + 1];
             float3 dir = normalizeSafe(hitPos - origin);
+            float contribution = gUseRelativeContributions ? contributions[depth] : contributions[depthCount];
             if (gUseNarrowing == 0)
             {
-                storeDensitiesNoNarrowing(origin, dir, hitPos, contributions[depth], gNodesSize, gNodes, gGlobalAccumulator, gOutNodes, gOutGlobalAccumulator );
+                storeDensitiesNoNarrowing( origin, dir, hitPos, contribution, gNodesSize, gNodes, gGlobalAccumulator, gOutNodes, gOutGlobalAccumulator );
             }
             else
             {
-                storeDensitiesWithNarrowing(origin, dir, hitPos, contributions[depth], gNodesSize, gNodes, gGlobalAccumulator, gOutNodes, gOutGlobalAccumulator );
+                storeDensitiesWithNarrowing( origin, dir, hitPos, contribution, gNodesSize, gNodes, gGlobalAccumulator, gOutNodes, gOutGlobalAccumulator );
 
             }
         }

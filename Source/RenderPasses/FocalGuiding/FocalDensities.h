@@ -49,6 +49,7 @@ private:
     uint mInitOctreeDepth = 3;
     uint mMaxOctreeDepth = 5;
 
+    bool mUseRelativeContributions = true;
     bool mPause = false;
     bool mLimitedPasses = true;
     bool mUseNarrowing = true;

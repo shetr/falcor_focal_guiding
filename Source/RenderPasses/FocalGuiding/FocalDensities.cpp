@@ -24,6 +24,7 @@ const ChannelList kOutputChannels = {
 
 const char kMaxPassCount[] = "maxPasses";
 const char kLimitedPasses[] = "limitedPasses";
+const char kUseRelativeContributions[] = "useRelativeContributions";
 const char kUseNarrowing[] = "useNarrowing";
 const char kNarrowFromPass[] = "narrowFromPass";
 const char kMaxNodesSize[] = "maxNodesSize";
@@ -41,6 +42,8 @@ FocalDensities::FocalDensities(ref<Device> pDevice, const Properties& props)
             mMaxPassCount = value;
         else if (key == kLimitedPasses)
             mLimitedPasses = value;
+        else if (key == kUseRelativeContributions)
+            mUseRelativeContributions = value;
         else if (key == kUseNarrowing)
             mUseNarrowing = value;
         else if (key == kNarrowFromPass)
@@ -66,6 +69,7 @@ Properties FocalDensities::getProperties() const
     Properties props;
     props[kMaxPassCount] = mMaxPassCount;
     props[kLimitedPasses] = mLimitedPasses;
+    props[kUseRelativeContributions] = mUseRelativeContributions;
     props[kUseNarrowing] = mUseNarrowing;
     props[kNarrowFromPass] = mNarrowFromPass;
     props[kMaxNodesSize] = mMaxNodesSize;
@@ -136,6 +140,7 @@ void FocalDensities::execute(RenderContext* pRenderContext, const RenderData& re
     // Set constants.
     auto var = mTracer.pVars->getRootVar();
     var["CB"]["gNodesSize"] = mNodesSize;
+    var["CB"]["gUseRelativeContributions"] = mUseRelativeContributions;
     var["CB"]["gUseNarrowing"] = (mUseNarrowing && mNarrowFromPass >= mPassCount) ? 1.0f : 0.0f;
     var["CB"]["gSceneBoundsMin"] = mpScene->getSceneBounds().minPoint;
     var["CB"]["gSceneBoundsMax"] = mpScene->getSceneBounds().maxPoint;
@@ -217,28 +222,33 @@ void FocalDensities::execute(RenderContext* pRenderContext, const RenderData& re
 
 void FocalDensities::renderUI(Gui::Widgets& widget)
 {
-    bool shouldPrintNodes = widget.button("print nodes");
+    bool shouldPrintNodes = widget.button("Print nodes");
     if (shouldPrintNodes)
     {
         printNodes();
     }
-    bool setDensitiesToUniform = widget.button("set uniform");
+
+    bool setDensitiesToUniform = widget.button("Set uniform");
     if (setDensitiesToUniform)
     {
         setUniformNodes();
     }
-    widget.checkbox("pause", mPause);
-    bool recomputeDensities = widget.button("recompute");
+    widget.checkbox("Pause", mPause);
+    bool recomputeDensities = widget.button("Recompute");
     if (recomputeDensities)
     {
         setUniformNodes();
         mPassCount = 0;
     }
-    widget.checkbox("limited passes", mLimitedPasses);
-    widget.slider("max passes", mMaxPassCount, 0u, 50u);
-    widget.checkbox("use narrowing", mUseNarrowing);
-    widget.slider("narrow from pass", mNarrowFromPass, 0u, 50u);
-    widget.slider("decay", mDecay, 0.0f, 1.0f);
+    widget.checkbox("Limited passes", mLimitedPasses);
+    widget.slider("Max passes", mMaxPassCount, 0u, 50u);
+    widget.checkbox("Use relative contributions", mUseRelativeContributions);
+    widget.tooltip(
+        "If true, then the contributions on the path are relative to the BSDF, if false, the they are all same along the path", true
+    );
+    widget.checkbox("Use narrowing", mUseNarrowing);
+    widget.slider("Narrow from pass", mNarrowFromPass, 0u, 50u);
+    widget.slider("Decay", mDecay, 0.0f, 1.0f);
 }
 
 void FocalDensities::setScene(RenderContext* pRenderContext, const ref<Scene>& pScene)
