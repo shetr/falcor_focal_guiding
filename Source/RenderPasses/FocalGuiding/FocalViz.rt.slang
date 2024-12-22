@@ -161,24 +161,41 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
     const float3 primaryRayDir = getPrimaryRayDir(pixel, frameDim, gScene.camera);
 
     const HitInfo hit = HitInfo(gVBuffer[pixel]);
-    if (hit.isValid())
+    if (gNormalsViz)
     {
-        // Pixel represents a valid primary hit. Compute its contribution
-        let lod = ExplicitLodTextureSampler(0.f);
+        if (hit.isValid())
+        {
+            let lod = ExplicitLodTextureSampler(0.f);
+            ShadingData sd = loadShadingData(hit, primaryRayOrigin, primaryRayDir, lod);
+            outColor = (sd.getOrientedFaceNormal() + float3(1)) * 0.5;
+        }
+        else
+        {
+            outColor = kDefaultBackgroundColor;
+        }
+    }
+    else
+    {
+        float hitDist = FLT_MAX;
+        if (hit.isValid())
+        {
+            // Pixel represents a valid primary hit. Compute its contribution
+            let lod = ExplicitLodTextureSampler(0.f);
 
-        // Load shading data.
-        ShadingData sd = loadShadingData(hit, primaryRayOrigin, primaryRayDir, lod);
+            // Load shading data.
+            ShadingData sd = loadShadingData(hit, primaryRayOrigin, primaryRayDir, lod);
 
-        // Create material instance at shading point.
-        let mi = gScene.materials.getMaterialInstance(sd, lod);
+            // Create material instance at shading point.
+            let mi = gScene.materials.getMaterialInstance(sd, lod);
 
-        // Compute ray origin for new rays spawned from the G-buffer.
-        float3 rayOrigin = sd.computeRayOrigin();
+            float cosTheta = abs(dot(sd.V, sd.faceN));
+            outColor += float3(cosTheta);
 
-        //outColor += mi.getProperties(sd).emission;
-        //outColor += mi.getProperties(sd).diffuseReflectionAlbedo;
-        float cosTheta = abs(dot(sd.V, sd.faceN));
-        outColor += float3(cosTheta);
+            // Compute ray origin for new rays spawned from the G-buffer.
+            float3 rayOrigin = sd.computeRayOrigin();
+            float3 hitDir = rayOrigin - primaryRayOrigin;
+            hitDist = length(hitDir);
+        }
 
         float globlaAcc = gGlobalAccumulator.Load<float>(0);
 
@@ -189,8 +206,6 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
 #else
         MaxDensityAccumulator densityAcc;
 #endif
-        float3 hitDir = rayOrigin - primaryRayOrigin;
-        float hitDist = length(hitDir);
         float nodeMultiplier = 1.0;
 
         NodeTravRef nodesStack[MAX_OCTREE_DEPTH];
@@ -268,15 +283,6 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
             outColor = densityVizColor;
         }
 
-        if (gNormalsViz)
-        {
-            outColor = (sd.getOrientedFaceNormal() + float3(1)) * 0.5;
-        }
-    }
-    else
-    {
-        // Background pixel.
-        outColor = kDefaultBackgroundColor;
     }
 
     return outColor;

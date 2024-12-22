@@ -20,13 +20,11 @@ def render_graph_FocalGuiding():
     g.addEdge("VBufferRT.viewW", "FocalGuiding.viewW")
     g.addEdge("FocalGuiding.color", "AccumulatePass.input")
     # visualization
-    VBufferViz = createPass("VBufferRT", {'sampleCount': 16})
-    g.addPass(VBufferViz, "VBufferViz")
     FocalViz = createPass("FocalViz", {})
     g.addPass(FocalViz, "FocalViz")
     g.addEdge("FocalDensities", "FocalViz")
-    g.addEdge("VBufferViz.vbuffer", "FocalViz.vbuffer")
-    g.addEdge("VBufferViz.viewW", "FocalViz.viewW")
+    g.addEdge("VBufferRT.vbuffer", "FocalViz.vbuffer")
+    g.addEdge("VBufferRT.viewW", "FocalViz.viewW")
     # outputs
     g.markOutput("ToneMapper.dst")
     g.markOutput("FocalViz.color")
