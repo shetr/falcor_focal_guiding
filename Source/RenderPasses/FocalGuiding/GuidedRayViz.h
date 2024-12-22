@@ -47,8 +47,10 @@ private:
     bool mComputeRays = true;
     float4 mLinesColor = float4(1, 1, 0, 1);
     float mMinIntensity = 0.03f;
-    bool mUseIntensity = false;
     bool mShadedLines = false;
+    bool mUseIntensity = false;
+    float mLightTheta = 0.0f;
+    float mLightPhi = 0.0f; 
     bool mShiftPressed = false;
 
     // Internal state

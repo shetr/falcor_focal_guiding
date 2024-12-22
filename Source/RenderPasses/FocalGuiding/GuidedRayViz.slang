@@ -4,6 +4,8 @@ cbuffer PerFrameCB
 {
     float4 gColor;
     float gMinIntensity;
+    float gLightTheta;
+    float gLightPhi;
     bool gShadedLines;
     bool gUseIntensity;
 };
@@ -23,8 +25,11 @@ float4 psMain(VSOut pIn) : SV_TARGET
     }
     if (gShadedLines)
     {
-        // TODO: change the light dir to "to camera" direction
-        float3 rgb = outColor.xyz * clamp(dot(pIn.normalW, float3(0, 1, 0)), 0.2, 1.0);
+        float phi = radians(gLightPhi);
+        float theta = radians(gLightTheta);
+        float sinTheta = sin(theta);
+        float3 lightDir = float3(cos(phi) * sinTheta, cos(theta), sin(phi) * sinTheta);
+        float3 rgb = outColor.xyz * clamp(dot(pIn.normalW, lightDir), 0.2, 1.0);
         outColor = float4(rgb, outColor.w);
     }
     return outColor;

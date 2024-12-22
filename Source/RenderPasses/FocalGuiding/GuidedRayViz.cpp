@@ -101,6 +101,8 @@ void GuidedRayViz::execute(RenderContext* pRenderContext, const RenderData& rend
         auto var = mpVars->getRootVar();
         var["PerFrameCB"]["gColor"] = mLinesColor;
         var["PerFrameCB"]["gMinIntensity"] = mMinIntensity;
+        var["PerFrameCB"]["gLightTheta"] = mLightTheta;
+        var["PerFrameCB"]["gLightPhi"] = mLightPhi;
         var["PerFrameCB"]["gShadedLines"] = mShadedLines;
         var["PerFrameCB"]["gUseIntensity"] = mUseIntensity;
 
@@ -119,8 +121,13 @@ void GuidedRayViz::renderUI(Gui::Widgets& widget)
     }
     widget.rgbaColor("Lines color", mLinesColor);
     widget.slider("Min intensity", mMinIntensity, 0.0f, 0.1f);
-    widget.checkbox("Shaded lines", mShadedLines);
     widget.checkbox("Use intensity", mUseIntensity);
+    widget.checkbox("Shaded lines", mShadedLines);
+    if (mShadedLines)
+    {
+        widget.slider("Line light theta", mLightTheta, 0.0f, 180.0f);
+        widget.slider("Line light phi", mLightPhi, 0.0f, 360.0f);
+    }
 }
 
 void GuidedRayViz::setScene(RenderContext* pRenderContext, const ref<Scene>& pScene)
