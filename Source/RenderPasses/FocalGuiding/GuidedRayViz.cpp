@@ -13,14 +13,29 @@ const char kShaderFile[] = "RenderPasses/FocalGuiding/GuidedRayViz.slang";
 GuidedRayViz::GuidedRayViz(ref<Device> pDevice, const Properties& props) : RenderPass(pDevice)
 {
     mpProgram = Program::createGraphics(mpDevice, kShaderFile, "vsMain", "psMain");
-    RasterizerState::Desc wireframeDesc;
-    wireframeDesc.setFillMode(RasterizerState::FillMode::Solid);
-    wireframeDesc.setCullMode(RasterizerState::CullMode::Back);
-    mpRasterState = RasterizerState::create(wireframeDesc);
+    RasterizerState::Desc rasterDesc;
+    rasterDesc.setFillMode(RasterizerState::FillMode::Solid);
+    rasterDesc.setCullMode(RasterizerState::CullMode::Back);
+    mpRasterState = RasterizerState::create(rasterDesc);
+
+    BlendState::Desc blendDesc;
+    blendDesc.setIndependentBlend(true);
+    blendDesc.setRtParams(
+        0,
+        BlendState::BlendOp::Max,
+        BlendState::BlendOp::Max,
+        BlendState::BlendFunc::One,
+        BlendState::BlendFunc::One,
+        BlendState::BlendFunc::One,
+        BlendState::BlendFunc::One
+    );
+    blendDesc.setRtBlend(0, true);
+    mpBlendState = BlendState::create(blendDesc);
 
     mpGraphicsState = GraphicsState::create(mpDevice);
     mpGraphicsState->setProgram(mpProgram);
     mpGraphicsState->setRasterizerState(mpRasterState);
+    mpGraphicsState->setBlendState(mpBlendState);
 }
 
 Properties GuidedRayViz::getProperties() const
@@ -85,6 +100,7 @@ void GuidedRayViz::execute(RenderContext* pRenderContext, const RenderData& rend
         // render rays
         auto var = mpVars->getRootVar();
         var["PerFrameCB"]["gColor"] = mLinesColor;
+        var["PerFrameCB"]["gMinIntensity"] = mMinIntensity;
         var["PerFrameCB"]["gShadedLines"] = mShadedLines;
         var["PerFrameCB"]["gUseIntensity"] = mUseIntensity;
 
@@ -102,6 +118,7 @@ void GuidedRayViz::renderUI(Gui::Widgets& widget)
         mComputeRays = true;
     }
     widget.rgbaColor("Lines color", mLinesColor);
+    widget.slider("Min intensity", mMinIntensity, 0.0f, 0.1f);
     widget.checkbox("Shaded lines", mShadedLines);
     widget.checkbox("Use intensity", mUseIntensity);
 }

@@ -40,7 +40,7 @@ private:
     float2 mGuidedRaysPos = float2(0.5);
 
     uint mMaxGuidedRaysSize = 1000;
-    uint mGuidedRaysSize = 10;
+    uint mGuidedRaysSize = 500;
     uint mLinesPathLenght = 1;
     float mGenRadius = 0.0;
     ref<Buffer> mGuidedRays;

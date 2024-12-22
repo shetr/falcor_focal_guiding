@@ -3,6 +3,7 @@ import Scene.Raster; // Imports defaultVS.
 cbuffer PerFrameCB
 {
     float4 gColor;
+    float gMinIntensity;
     bool gShadedLines;
     bool gUseIntensity;
 };
@@ -17,11 +18,12 @@ float4 psMain(VSOut pIn) : SV_TARGET
     float4 outColor = gColor;
     if (gUseIntensity)
     {
-        float intensity = pIn.texC.x;
+        float intensity = max(gMinIntensity, pIn.texC.x);
         outColor = float4(outColor.xyz * intensity, outColor.w);
     }
     if (gShadedLines)
     {
+        // TODO: change the light dir to "to camera" direction
         float3 rgb = outColor.xyz * clamp(dot(pIn.normalW, float3(0, 1, 0)), 0.2, 1.0);
         outColor = float4(rgb, outColor.w);
     }

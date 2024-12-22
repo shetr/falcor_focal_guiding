@@ -40,12 +40,13 @@ private:
     float colorToIntensity(float3 color);
 
     uint mMaxGuidedRaysSize = 1000;
-    uint mGuidedRaysSize = 10;
+    uint mGuidedRaysSize = 500;
     float mLineLengthScale = 0.25;
     float mLineWidthScale = 0.5;
     ref<Buffer> mGuidedRays;
     bool mComputeRays = true;
     float4 mLinesColor = float4(1, 1, 0, 1);
+    float mMinIntensity = 0.03f;
     bool mUseIntensity = false;
     bool mShadedLines = false;
     bool mShiftPressed = false;
@@ -60,5 +61,6 @@ private:
     ref<Program> mpProgram;
     ref<GraphicsState> mpGraphicsState;
     ref<RasterizerState> mpRasterState;
+    ref<BlendState> mpBlendState;
     ref<ProgramVars> mpVars;
 };
