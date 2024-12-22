@@ -44,8 +44,6 @@ float3 tracePath(const uint2 inPixel, const uint2 frameDim)
     float2 rayOffset = float2(radius * shrinkX * cos(theta), radius * sin(theta));
     uint2 rayStartPixel = uint2((gGuidedRaysPos + rayOffset) * float2(frameDim));
 
-    float3 outColor = float3(0.f);
-
     const float3 primaryRayOrigin = gScene.camera.getPosition();
     const float3 primaryRayDir = getPrimaryRayDir(rayStartPixel, frameDim, gScene.camera);
 
@@ -68,16 +66,6 @@ float3 tracePath(const uint2 inPixel, const uint2 frameDim)
         // Compute ray origin for new rays spawned from the G-buffer.
         float3 rayOrigin = sd.computeRayOrigin();
 
-        if (COMPUTE_DIRECT)
-        {
-            // Always output directly emitted light, independent of whether emissive materials are treated as light sources or not.
-            outColor += mi.getProperties(sd).emission;
-
-            // Add contribution of direct light from analytic lights.
-            // Light probe and mesh lights are handled by the scatter ray hit/miss shaders.
-            outColor += USE_ANALYTIC_LIGHTS ? evalDirectAnalytic(sd, mi, sg) : float3(0.f);
-        }
-
         if (rayIndex < gGuidedRayLinesSize / gLinesPathLenght)
         {
             AABB box = AABB(gSceneBoundsMin, gSceneBoundsMax);
@@ -97,22 +85,47 @@ float3 tracePath(const uint2 inPixel, const uint2 frameDim)
             }
             else
             {
+                float maxIntensity = 0.0;
+                float3 maxRadiance = float3(0.0);
+                int maxIntensityIndex = 0;
                 for (int l = 0; l < gLinesPathLenght; l++)
                 {
                     gGuidedRayLines[rayIndex * gLinesPathLenght + l].pos1 = rayData.origin;
                     traceScatterRay(rayData);
                     gGuidedRayLines[rayIndex * gLinesPathLenght + l].pos2 = rayData.origin;
+                    float intensity = dot(float3(0.299, 0.587, 0.114), rayData.radiance);
+                    if (intensity > maxIntensity)
+                    {
+                        maxIntensity = intensity;
+                        maxRadiance = rayData.radiance;
+                        maxIntensityIndex = l;
+                    }
                 }
 
                 for (int l = 0; l < gLinesPathLenght; l++)
                 {
-                    gGuidedRayLines[rayIndex * gLinesPathLenght + l].color = rayData.radiance;
+                    float3 storeRadiance = float3(0.0);
+                    if (l <= maxIntensityIndex)
+                    {
+                        storeRadiance = maxRadiance;
+                    }
+                    gGuidedRayLines[rayIndex * gLinesPathLenght + l].color = storeRadiance;
                 }
             }
         }
     }
 
-    return float3(1);
+    float3 outColor = float3(0.0);
+
+    float2 pixelSquareDimDist = float2(1.0, shrinkX) * sqr(float2(inPixel) / float2(frameDim) - gGuidedRaysPos);
+    float pixelSquareDist = pixelSquareDimDist.x + pixelSquareDimDist.y;
+
+    if (pixelSquareDist >  sqr(gGenRadius) && pixelSquareDist <  sqr(gGenRadius + 0.001))
+    {
+        outColor = float3(0.2);
+    }
+
+    return outColor;
 }
 
 //
