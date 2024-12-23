@@ -154,7 +154,7 @@ void FocalDensities::execute(RenderContext* pRenderContext, const RenderData& re
     var["CB"]["gSceneBoundsMax"] = mpScene->getSceneBounds().maxPoint;
     var["CB"]["gGuidedRayProb"] = mGuidedRayProb;
     var["CB"]["gUseAnalyticLights"] = mUseAnalyticLights;
-    var["CB"]["gIntegrateEmissiveHits"] = mIntegrateLastHits;
+    var["CB"]["gIntegrateLastHits"] = mIntegrateLastHits;
 
     Dictionary& dict = renderData.getDictionary();
     dict["gNodes"] = mNodes;
