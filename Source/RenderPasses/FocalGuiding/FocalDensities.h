@@ -59,7 +59,7 @@ private:
     // TODO: make it either global for other passes, or with separate ui setting here
     float mGuidedRayProb = 0.5f;
     bool mUseAnalyticLights = true;
-    bool mIntegrateEmissiveHits = true;
+    bool mIntegrateLastHits = true;
 
     std::vector<DensityNode> mTempLocalNodes;
     uint mPassCount = 0;

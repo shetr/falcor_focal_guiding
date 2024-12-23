@@ -30,7 +30,7 @@ cbuffer CB
     uint gPRNGDimension; // First available PRNG dimension.
     float gGuidedRayProb;
     bool gUseAnalyticLights;
-    bool gIntegrateEmissiveHits;
+    bool gIntegrateLastHits;
 }
 
 static const float3 kDefaultBackgroundColor = float3(0, 0, 0);
@@ -328,6 +328,7 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
 
         float3 origins[MAX_BOUNCES + 2];
         float contributions[MAX_BOUNCES + 1];
+        float maxContribution = 0.0;
 
         // Follow path into the scene and compute its total contribution.
         int depth = 0;
@@ -339,6 +340,7 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
             traceScatterRay(rayData);
 
             contributions[depth] = dot(float3(0.299, 0.587, 0.114), rayData.radiance);
+            maxContribution = max(maxContribution, contributions[depth]);
         }
         int depthCount = depth;
         origins[depthCount] = rayData.origin;
@@ -355,8 +357,8 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
             float3 origin = origins[depth];
             float3 hitPos = origins[depth + 1];
             float3 dir = normalizeSafe(hitPos - origin);
-            float contribution = gUseRelativeContributions ? contributions[depth] : contributions[depthCount];
-            if (!gIntegrateEmissiveHits && depth == depthCount - 1)
+            float contribution = gUseRelativeContributions ? contributions[depth] : maxContribution;
+            if (!gIntegrateLastHits && depth == depthCount - 1)
             {
                 continue;
             }

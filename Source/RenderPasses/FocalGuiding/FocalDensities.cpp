@@ -32,7 +32,7 @@ const char kInitOctreeDepth[] = "initOctreeDepth";
 const char kMaxOctreeDepth[] = "maxOctreeDepth";
 const char kDecay[] = "decay";
 const char kUseAnalyticLights[] = "useAnalyticLights";
-const char kIntegrateEmissiveHits[] = "mIntegrateEmissiveHits";
+const char kIntegrateLastHits[] = "mIntegrateLastHits";
 } // namespace
 
 FocalDensities::FocalDensities(ref<Device> pDevice, const Properties& props)
@@ -60,8 +60,8 @@ FocalDensities::FocalDensities(ref<Device> pDevice, const Properties& props)
             mDecay = value;
         else if (key == kUseAnalyticLights)
             mUseAnalyticLights = value;
-        else if (key == kIntegrateEmissiveHits)
-            mIntegrateEmissiveHits = value;
+        else if (key == kIntegrateLastHits)
+            mIntegrateLastHits = value;
         else
             logWarning("Unknown property '{}' in FocalDensities properties.", key);
     }
@@ -83,7 +83,7 @@ Properties FocalDensities::getProperties() const
     props[kMaxOctreeDepth] = mMaxOctreeDepth;
     props[kDecay] = mDecay;
     props[kUseAnalyticLights] = mUseAnalyticLights;
-    props[kIntegrateEmissiveHits] = mIntegrateEmissiveHits;
+    props[kIntegrateLastHits] = mIntegrateLastHits;
     return props;
 }
 
@@ -154,7 +154,7 @@ void FocalDensities::execute(RenderContext* pRenderContext, const RenderData& re
     var["CB"]["gSceneBoundsMax"] = mpScene->getSceneBounds().maxPoint;
     var["CB"]["gGuidedRayProb"] = mGuidedRayProb;
     var["CB"]["gUseAnalyticLights"] = mUseAnalyticLights;
-    var["CB"]["gIntegrateEmissiveHits"] = mIntegrateEmissiveHits;
+    var["CB"]["gIntegrateEmissiveHits"] = mIntegrateLastHits;
 
     Dictionary& dict = renderData.getDictionary();
     dict["gNodes"] = mNodes;
@@ -260,7 +260,7 @@ void FocalDensities::renderUI(Gui::Widgets& widget)
     widget.slider("Narrow from pass", mNarrowFromPass, 0u, 50u);
     widget.slider("Decay", mDecay, 0.0f, 1.0f);
     widget.checkbox("Use analytic lights", mUseAnalyticLights);
-    widget.checkbox("Integrate emissive hits", mIntegrateEmissiveHits);
+    widget.checkbox("Integrate last hits", mIntegrateLastHits);
 }
 
 void FocalDensities::setScene(RenderContext* pRenderContext, const ref<Scene>& pScene)

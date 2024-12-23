@@ -441,6 +441,9 @@ struct FocalShared
         // Create material instance.
         let mi = gScene.materials.getMaterialInstance(sd, lod);
 
+        // Compute ray origin for new rays spawned from the hit.
+        float3 rayOrigin = sd.computeRayOrigin();
+
         // Add emitted light.
         if (useEmissiveLights && (computeDirect || rayData.pathLength > 0))
         {
@@ -449,6 +452,7 @@ struct FocalShared
             if (stopOnEmissive && dot(emission, float3(1)) > 0.001)
             {
                 rayData.terminated = true;
+                rayData.origin = rayOrigin;
                 return;
             }
         }
@@ -457,11 +461,9 @@ struct FocalShared
         if (rayData.pathLength >= MAX_BOUNCES)
         {
             rayData.terminated = true;
+            rayData.origin = rayOrigin;
             return;
         }
-
-        // Compute ray origin for new rays spawned from the hit.
-        float3 rayOrigin = sd.computeRayOrigin();
 
         // Add contribution of direct light from analytic lights.
         if (useAnalyticLights)
@@ -476,6 +478,7 @@ struct FocalShared
         if (!generateRay(sd, mi, rayOrigin, rayData, pdf))
         {
             rayData.terminated = true;
+            rayData.origin = rayOrigin;
             return;
         }
 
