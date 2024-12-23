@@ -29,6 +29,8 @@ cbuffer CB
     uint gFrameCount;    // Frame count since scene was loaded.
     uint gPRNGDimension; // First available PRNG dimension.
     float gGuidedRayProb;
+    bool gUseAnalyticLights;
+    bool gIntegrateEmissiveHits;
 }
 
 static const float3 kDefaultBackgroundColor = float3(0, 0, 0);
@@ -354,6 +356,10 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
             float3 hitPos = origins[depth + 1];
             float3 dir = normalizeSafe(hitPos - origin);
             float contribution = gUseRelativeContributions ? contributions[depth] : contributions[depthCount];
+            if (!gIntegrateEmissiveHits && depth == depthCount - 1)
+            {
+                continue;
+            }
             if (gUseNarrowing == 0)
             {
                 storeDensitiesNoNarrowing( origin, dir, hitPos, contribution, gNodesSize, gNodes, gGlobalAccumulator, gOutNodes, gOutGlobalAccumulator );
@@ -417,7 +423,7 @@ void scatterTriangleMeshClosestHit(inout ScatterRayData rayData, BuiltInTriangle
     triangleHit.barycentrics = attribs.barycentrics;
     AABB box = AABB(gSceneBoundsMin, gSceneBoundsMax);
     FocalShared focalShared = FocalShared(box, gGuidedRayProb, gNodes, gNodesSize, gGlobalAccumulator);
-    focalShared.handleHit(HitInfo(triangleHit), rayData, false, true, true);
+    focalShared.handleHit(HitInfo(triangleHit), rayData, gUseAnalyticLights, true, true, true);
 }
 
 [shader("anyhit")]

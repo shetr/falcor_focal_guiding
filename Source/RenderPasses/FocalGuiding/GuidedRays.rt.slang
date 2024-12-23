@@ -176,7 +176,7 @@ void scatterTriangleMeshClosestHit(inout ScatterRayData rayData, BuiltInTriangle
     triangleHit.barycentrics = attribs.barycentrics;
     AABB box = AABB(gSceneBoundsMin, gSceneBoundsMax);
     FocalShared focalShared = FocalShared(box, gGuidedRayProb, gNodes, gNodesSize, gGlobalAccumulator);
-    focalShared.handleHit(HitInfo(triangleHit), rayData, false, true, true);
+    focalShared.handleHit(HitInfo(triangleHit), rayData, false, true, true, false);
 }
 
 [shader("anyhit")]

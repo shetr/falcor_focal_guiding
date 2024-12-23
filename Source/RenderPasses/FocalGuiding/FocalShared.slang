@@ -431,7 +431,7 @@ struct FocalShared
         \param[in,out] rayData Ray payload.
 
     */
-    void handleHit(const HitInfo hit, inout ScatterRayData rayData, bool useAnalyticLights, bool useEmissiveLights, bool computeDirect)
+    void handleHit(const HitInfo hit, inout ScatterRayData rayData, bool useAnalyticLights, bool useEmissiveLights, bool computeDirect, bool stopOnEmissive)
     {
         let lod = ExplicitLodTextureSampler(0.f);
 
@@ -444,7 +444,13 @@ struct FocalShared
         // Add emitted light.
         if (useEmissiveLights && (computeDirect || rayData.pathLength > 0))
         {
-            rayData.radiance += rayData.thp * mi.getProperties(sd).emission;
+            float3 emission = mi.getProperties(sd).emission;
+            rayData.radiance += rayData.thp * emission;
+            if (stopOnEmissive && dot(emission, float3(1)) > 0.001)
+            {
+                rayData.terminated = true;
+                return;
+            }
         }
 
         // Check whether to terminate based on max depth.

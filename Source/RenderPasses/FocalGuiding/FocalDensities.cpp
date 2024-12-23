@@ -31,6 +31,8 @@ const char kMaxNodesSize[] = "maxNodesSize";
 const char kInitOctreeDepth[] = "initOctreeDepth";
 const char kMaxOctreeDepth[] = "maxOctreeDepth";
 const char kDecay[] = "decay";
+const char kUseAnalyticLights[] = "useAnalyticLights";
+const char kIntegrateEmissiveHits[] = "mIntegrateEmissiveHits";
 } // namespace
 
 FocalDensities::FocalDensities(ref<Device> pDevice, const Properties& props)
@@ -56,6 +58,10 @@ FocalDensities::FocalDensities(ref<Device> pDevice, const Properties& props)
             mMaxOctreeDepth = value;
         else if (key == kDecay)
             mDecay = value;
+        else if (key == kUseAnalyticLights)
+            mUseAnalyticLights = value;
+        else if (key == kIntegrateEmissiveHits)
+            mIntegrateEmissiveHits = value;
         else
             logWarning("Unknown property '{}' in FocalDensities properties.", key);
     }
@@ -76,6 +82,8 @@ Properties FocalDensities::getProperties() const
     props[kInitOctreeDepth] = mInitOctreeDepth;
     props[kMaxOctreeDepth] = mMaxOctreeDepth;
     props[kDecay] = mDecay;
+    props[kUseAnalyticLights] = mUseAnalyticLights;
+    props[kIntegrateEmissiveHits] = mIntegrateEmissiveHits;
     return props;
 }
 
@@ -145,6 +153,8 @@ void FocalDensities::execute(RenderContext* pRenderContext, const RenderData& re
     var["CB"]["gSceneBoundsMin"] = mpScene->getSceneBounds().minPoint;
     var["CB"]["gSceneBoundsMax"] = mpScene->getSceneBounds().maxPoint;
     var["CB"]["gGuidedRayProb"] = mGuidedRayProb;
+    var["CB"]["gUseAnalyticLights"] = mUseAnalyticLights;
+    var["CB"]["gIntegrateEmissiveHits"] = mIntegrateEmissiveHits;
 
     Dictionary& dict = renderData.getDictionary();
     dict["gNodes"] = mNodes;
@@ -249,6 +259,8 @@ void FocalDensities::renderUI(Gui::Widgets& widget)
     widget.checkbox("Use narrowing", mUseNarrowing);
     widget.slider("Narrow from pass", mNarrowFromPass, 0u, 50u);
     widget.slider("Decay", mDecay, 0.0f, 1.0f);
+    widget.checkbox("Use analytic lights", mUseAnalyticLights);
+    widget.checkbox("Integrate emissive hits", mIntegrateEmissiveHits);
 }
 
 void FocalDensities::setScene(RenderContext* pRenderContext, const ref<Scene>& pScene)
