@@ -7,6 +7,7 @@ namespace
 const char kShaderFile[] = "RenderPasses/FocalGuiding/NodePruning.slang";
 
 const char kRunInFrame[] = "runInFrame";
+const char kRunAfterLastIter[] = "runAfterLastIter";
 const char kUsePruning[] = "usePruning";
 } // namespace
 
@@ -16,6 +17,8 @@ NodePruning::NodePruning(ref<Device> pDevice, const Properties& props) : RenderP
     {
         if (key == kRunInFrame)
             mRunInFrame = value;
+        else if (key == kRunAfterLastIter)
+            mRunAfterLastIter = value;
         else if (key == kUsePruning)
             mUsePruning = value;
         else
@@ -30,6 +33,7 @@ Properties NodePruning::getProperties() const
 {
     Properties props;
     props[kRunInFrame] = mRunInFrame;
+    props[kRunAfterLastIter] = mRunAfterLastIter;
     props[kUsePruning] = mUsePruning;
     return props;
 }
@@ -63,6 +67,12 @@ void NodePruning::execute(RenderContext* pRenderContext, const RenderData& rende
     mMaxNodesSize = dict["gMaxNodesSize"];
     mMaxOctreeDepth = dict["gMaxOctreeDepth"];
     mPassCount = dict["gPassCount"];
+
+    if (mRunAfterLastIter)
+    {
+        uint densitiesMaxPassCount = dict["gMaxPassCount"];
+        mRunInFrame = densitiesMaxPassCount + 1;
+    }
 
     mpProgram->addDefine("MAX_OCTREE_DEPTH", std::to_string(mMaxOctreeDepth));
     mpProgram->addDefine("MAX_NODES_SIZE", std::to_string(mMaxNodesSize));
@@ -101,8 +111,12 @@ void NodePruning::execute(RenderContext* pRenderContext, const RenderData& rende
 
 void NodePruning::renderUI(Gui::Widgets& widget)
 {
-    widget.checkbox("enabled", mUsePruning);
-    widget.slider("run in frame", mRunInFrame, 0u, 50u);
+    widget.checkbox("Enabled", mUsePruning);
+    widget.checkbox("Run after last iter", mRunAfterLastIter);
+    if (!mRunAfterLastIter)
+    {
+        widget.slider("Run in frame", mRunInFrame, 0u, 50u);
+    }
 }
 
 void NodePruning::setScene(RenderContext* pRenderContext, const ref<Scene>& pScene)

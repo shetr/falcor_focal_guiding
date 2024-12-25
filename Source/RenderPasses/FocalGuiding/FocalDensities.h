@@ -54,6 +54,7 @@ private:
     bool mLimitedPasses = true;
     bool mUseNarrowing = true;
     uint mNarrowFromPass = 2;
+    uint mNarrowEachNthPass = 1;
     uint mMaxPassCount = 5;
     float mDecay = 0.5f;
     // TODO: make it either global for other passes, or with separate ui setting here

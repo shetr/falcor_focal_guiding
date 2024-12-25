@@ -27,6 +27,7 @@ const char kLimitedPasses[] = "limitedPasses";
 const char kUseRelativeContributions[] = "useRelativeContributions";
 const char kUseNarrowing[] = "useNarrowing";
 const char kNarrowFromPass[] = "narrowFromPass";
+const char kNarrowEachNthPass[] = "narrowEachNthPass";
 const char kMaxNodesSize[] = "maxNodesSize";
 const char kInitOctreeDepth[] = "initOctreeDepth";
 const char kMaxOctreeDepth[] = "maxOctreeDepth";
@@ -50,6 +51,8 @@ FocalDensities::FocalDensities(ref<Device> pDevice, const Properties& props)
             mUseNarrowing = value;
         else if (key == kNarrowFromPass)
             mNarrowFromPass = value;
+        else if (key == kNarrowEachNthPass)
+            mNarrowEachNthPass = value;
         else if (key == kMaxNodesSize)
             mMaxNodesSize = value;
         else if (key == kInitOctreeDepth)
@@ -78,6 +81,7 @@ Properties FocalDensities::getProperties() const
     props[kUseRelativeContributions] = mUseRelativeContributions;
     props[kUseNarrowing] = mUseNarrowing;
     props[kNarrowFromPass] = mNarrowFromPass;
+    props[kNarrowEachNthPass] = mNarrowEachNthPass;
     props[kMaxNodesSize] = mMaxNodesSize;
     props[kInitOctreeDepth] = mInitOctreeDepth;
     props[kMaxOctreeDepth] = mMaxOctreeDepth;
@@ -149,7 +153,7 @@ void FocalDensities::execute(RenderContext* pRenderContext, const RenderData& re
     auto var = mTracer.pVars->getRootVar();
     var["CB"]["gNodesSize"] = mNodesSize;
     var["CB"]["gUseRelativeContributions"] = mUseRelativeContributions;
-    var["CB"]["gUseNarrowing"] = (mUseNarrowing && mNarrowFromPass <= mPassCount) ? 1.0f : 0.0f;
+    var["CB"]["gUseNarrowing"] = (mUseNarrowing && mNarrowFromPass <= mPassCount && (mPassCount % mNarrowEachNthPass == 0)) ? 1.0f : 0.0f;
     var["CB"]["gSceneBoundsMin"] = mpScene->getSceneBounds().minPoint;
     var["CB"]["gSceneBoundsMax"] = mpScene->getSceneBounds().maxPoint;
     var["CB"]["gGuidedRayProb"] = mGuidedRayProb;
@@ -169,7 +173,11 @@ void FocalDensities::execute(RenderContext* pRenderContext, const RenderData& re
     dict["gGlobalAccumulator"] = mGlobalAccumulator;
     dict["gMaxNodesSize"] = mMaxNodesSize;
     dict["gMaxOctreeDepth"] = mMaxOctreeDepth;
+    dict["gLimitedPasses"] = mLimitedPasses;
     dict["gPassCount"] = mPassCount;
+    dict["gMaxPassCount"] = mMaxPassCount;
+    dict["gNarrowFromPass"] = mNarrowFromPass;
+    dict["gNarrowEachNthPass"] = mNarrowEachNthPass;
     // renderData holds the requested resources
     // auto& pTexture = renderData.getTexture("src");
 
@@ -255,6 +263,7 @@ void FocalDensities::renderUI(Gui::Widgets& widget)
     );
     widget.checkbox("Use narrowing", mUseNarrowing);
     widget.slider("Narrow from pass", mNarrowFromPass, 0u, 50u);
+    widget.slider("Narrow each Nth pass", mNarrowEachNthPass, 1u, 50u);
     widget.slider("Decay", mDecay, 0.0f, 1.0f);
     widget.checkbox("Use analytic lights", mUseAnalyticLights);
     widget.checkbox("Integrate last hits", mIntegrateLastHits);
@@ -370,12 +379,32 @@ void FocalDensities::printNodes()
 
     float sceneVolume = mpScene->getSceneBounds().volume();
 
+    uint realNodeCount = 1;
+    for (uint i = 1; i < mNodesSize; ++i)
+    {
+        uint parentNodeIndex = densityNodes[i].parentIndex;
+        uint parentOffset = densityNodes[i].parentOffsetAndDepth & PARENT_OFFSET_BITS;
+        if (!densityNodes[parentNodeIndex].childs[parentOffset].isLeaf())
+        {
+            realNodeCount++;
+        }
+    }
     printf("node count:         %d\n", mNodesSize);
+    printf("real node count:    %d\n", realNodeCount);
     printf("global accumulator: %f\n", globalAccumulator);
+
     for (uint i = 0; i < mNodesSize; ++i)
     {
+        uint parentNodeIndex = densityNodes[i].parentIndex;
+        uint parentOffset = densityNodes[i].parentOffsetAndDepth & PARENT_OFFSET_BITS;
+
+        if (i > 0 && densityNodes[parentNodeIndex].childs[parentOffset].isLeaf())
+        {
+            continue;
+        }
+
         printf("  node: %d\n", i);
-        printf("    parentIndex : %d\n", densityNodes[i].parentIndex);
+        printf("    parentIndex : %d\n", parentNodeIndex);
         printf("    parentOffset: %d\n", densityNodes[i].parentOffsetAndDepth & PARENT_OFFSET_BITS);
         uint depth = densityNodes[i].parentOffsetAndDepth >> PARENT_OFFSET_BIT_COUNT;
         printf("    depth       : %d\n", depth);
@@ -398,6 +427,10 @@ void FocalDensities::printNodes()
             printf("      debug value   : %f\n", child.density);
         }
     }
+
+    printf("node count:         %d\n", mNodesSize);
+    printf("real node count:    %d\n", realNodeCount);
+    printf("global accumulator: %f\n", globalAccumulator);
 }
 
 float genRand()

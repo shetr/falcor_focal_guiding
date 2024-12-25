@@ -41,6 +41,9 @@ private:
 
     float mSplittingThreshold = 0.001f;
     bool mUseSplitting = true;
+    bool mSamePassAsNarrowPass = true;
+    uint mExecuteFromPass = 2;
+    uint mExecuteEachNthPass = 1;
     bool mLimitedPasses = true;
     uint mMaxPassCount = 5;
 

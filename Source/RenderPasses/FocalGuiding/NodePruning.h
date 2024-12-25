@@ -42,6 +42,7 @@ private:
     uint mMaxOctreeDepth = 3;
 
     bool mUsePruning = true;
+    bool mRunAfterLastIter = true;
     uint mRunInFrame = 6;
 
     uint mPassCount = 0;

@@ -8,6 +8,9 @@ const char kShaderFile[] = "RenderPasses/FocalGuiding/NodeSplitting.slang";
 
 const char kMaxPassCount[] = "maxPasses";
 const char kLimitedPasses[] = "limitedPasses";
+const char kSamePassAsNarrowPass[] = "samePassAsNarrowPass";
+const char kExecuteFromPass[] = "executeFromPass";
+const char kExecuteEachNthPass[] = "executeEachNthPass";
 } // namespace
 
 NodeSplitting::NodeSplitting(ref<Device> pDevice, const Properties& props) : RenderPass(pDevice)
@@ -18,6 +21,12 @@ NodeSplitting::NodeSplitting(ref<Device> pDevice, const Properties& props) : Ren
             mMaxPassCount = value;
         else if (key == kLimitedPasses)
             mLimitedPasses = value;
+        else if (key == kSamePassAsNarrowPass)
+            mSamePassAsNarrowPass = value;
+        else if (key == kExecuteFromPass)
+            mExecuteFromPass = value;
+        else if (key == kExecuteEachNthPass)
+            mExecuteEachNthPass = value;
         else
             logWarning("Unknown property '{}' in NodeSplitting properties.", key);
     }
@@ -31,6 +40,9 @@ Properties NodeSplitting::getProperties() const
     Properties props;
     props[kMaxPassCount] = mMaxPassCount;
     props[kLimitedPasses] = mLimitedPasses;
+    props[kSamePassAsNarrowPass] = mSamePassAsNarrowPass;
+    props[kExecuteFromPass] = mExecuteFromPass;
+    props[kExecuteEachNthPass] = mExecuteEachNthPass;
     return props;
 }
 
@@ -64,7 +76,16 @@ void NodeSplitting::execute(RenderContext* pRenderContext, const RenderData& ren
     mMaxOctreeDepth = dict["gMaxOctreeDepth"];
     mPassCount = dict["gPassCount"];
 
-    if (!mUseSplitting || mLimitedPasses && mPassCount >= mMaxPassCount)
+    if (mSamePassAsNarrowPass)
+    {
+        mLimitedPasses = dict["gLimitedPasses"];
+        mMaxPassCount = dict["gMaxPassCount"];
+        mExecuteFromPass = dict["gNarrowFromPass"];
+        mExecuteEachNthPass = dict["gNarrowEachNthPass"];
+    }
+
+    if (!mUseSplitting || mLimitedPasses && mPassCount >= mMaxPassCount || mPassCount < mExecuteFromPass ||
+        (mPassCount % mExecuteEachNthPass != 0))
     {
         return;
     }
@@ -97,9 +118,15 @@ void NodeSplitting::execute(RenderContext* pRenderContext, const RenderData& ren
 
 void NodeSplitting::renderUI(Gui::Widgets& widget)
 {
-    widget.checkbox("enabled", mUseSplitting);
-    widget.checkbox("limited passes", mLimitedPasses);
-    widget.slider("max passes", mMaxPassCount, 0u, 50u);
+    widget.checkbox("Enabled", mUseSplitting);
+    widget.checkbox("Same pass as narrow pass", mSamePassAsNarrowPass);
+    if (!mSamePassAsNarrowPass)
+    {
+        widget.checkbox("Limited passes", mLimitedPasses);
+        widget.slider("Execute from pass", mExecuteFromPass, 0u, 50u);
+        widget.slider("Execute each Nth pass", mExecuteEachNthPass, 1u, 50u);
+        widget.slider("Max passes", mMaxPassCount, 0u, 50u);
+    }
 }
 
 void NodeSplitting::setScene(RenderContext* pRenderContext, const ref<Scene>& pScene)
