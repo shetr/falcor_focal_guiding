@@ -40,6 +40,7 @@ private:
     uint mMaxOctreeDepth = 3;
 
     float mSplittingThreshold = 0.001f;
+    bool mUseSplitting = true;
     bool mLimitedPasses = true;
     uint mMaxPassCount = 5;
 

@@ -149,7 +149,7 @@ void FocalDensities::execute(RenderContext* pRenderContext, const RenderData& re
     auto var = mTracer.pVars->getRootVar();
     var["CB"]["gNodesSize"] = mNodesSize;
     var["CB"]["gUseRelativeContributions"] = mUseRelativeContributions;
-    var["CB"]["gUseNarrowing"] = (mUseNarrowing && mNarrowFromPass >= mPassCount) ? 1.0f : 0.0f;
+    var["CB"]["gUseNarrowing"] = (mUseNarrowing && mNarrowFromPass <= mPassCount) ? 1.0f : 0.0f;
     var["CB"]["gSceneBoundsMin"] = mpScene->getSceneBounds().minPoint;
     var["CB"]["gSceneBoundsMax"] = mpScene->getSceneBounds().maxPoint;
     var["CB"]["gGuidedRayProb"] = mGuidedRayProb;
@@ -158,7 +158,7 @@ void FocalDensities::execute(RenderContext* pRenderContext, const RenderData& re
 
     Dictionary& dict = renderData.getDictionary();
     dict["gNodes"] = mNodes;
-    if (!dict.keyExists("gNodesSize"))
+    if (!dict.keyExists("gNodesSize") || mPassCount == 0)
     {
         dict["gNodesSize"] = mNodesSize;
     }
@@ -169,6 +169,7 @@ void FocalDensities::execute(RenderContext* pRenderContext, const RenderData& re
     dict["gGlobalAccumulator"] = mGlobalAccumulator;
     dict["gMaxNodesSize"] = mMaxNodesSize;
     dict["gMaxOctreeDepth"] = mMaxOctreeDepth;
+    dict["gPassCount"] = mPassCount;
     // renderData holds the requested resources
     // auto& pTexture = renderData.getTexture("src");
 
@@ -232,17 +233,13 @@ void FocalDensities::execute(RenderContext* pRenderContext, const RenderData& re
 
 void FocalDensities::renderUI(Gui::Widgets& widget)
 {
+    widget.text(std::string("Nodes size: ") + std::to_string(mNodesSize));
     bool shouldPrintNodes = widget.button("Print nodes");
     if (shouldPrintNodes)
     {
         printNodes();
     }
 
-    bool setDensitiesToUniform = widget.button("Set uniform");
-    if (setDensitiesToUniform)
-    {
-        setUniformNodes();
-    }
     widget.checkbox("Pause", mPause);
     bool recomputeDensities = widget.button("Recompute");
     if (recomputeDensities)

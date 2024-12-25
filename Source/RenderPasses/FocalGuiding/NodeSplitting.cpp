@@ -51,12 +51,9 @@ void NodeSplitting::execute(RenderContext* pRenderContext, const RenderData& ren
     {
         return;
     }
-    if (mLimitedPasses && mPassCount >= mMaxPassCount)
-    {
-        return;
-    }
     Dictionary& dict = renderData.getDictionary();
-    if (!dict.keyExists("gNodes") || !dict.keyExists("gNodesSize") || !dict.keyExists("gMaxNodesSize") || !dict.keyExists("gMaxOctreeDepth"))
+    if (!dict.keyExists("gNodes") || !dict.keyExists("gNodesSize") || !dict.keyExists("gMaxNodesSize") ||
+        !dict.keyExists("gMaxOctreeDepth") || !dict.keyExists("gPassCount"))
     {
         return;
     }
@@ -65,6 +62,12 @@ void NodeSplitting::execute(RenderContext* pRenderContext, const RenderData& ren
     mNodesSize = dict["gNodesSize"];
     mMaxNodesSize = dict["gMaxNodesSize"];
     mMaxOctreeDepth = dict["gMaxOctreeDepth"];
+    mPassCount = dict["gPassCount"];
+
+    if (!mUseSplitting || mLimitedPasses && mPassCount >= mMaxPassCount)
+    {
+        return;
+    }
     
     mpProgram->addDefine("MAX_OCTREE_DEPTH", std::to_string(mMaxOctreeDepth));
     mpProgram->addDefine("MAX_NODES_SIZE", std::to_string(mMaxNodesSize));
@@ -90,12 +93,11 @@ void NodeSplitting::execute(RenderContext* pRenderContext, const RenderData& ren
 
     mNodesSize = mNodesSizeBuffer->getElement<uint>(0);
     dict["gNodesSize"] = mNodesSize;
-
-    mPassCount++;
 }
 
 void NodeSplitting::renderUI(Gui::Widgets& widget)
 {
+    widget.checkbox("enabled", mUseSplitting);
     widget.checkbox("limited passes", mLimitedPasses);
     widget.slider("max passes", mMaxPassCount, 0u, 50u);
 }

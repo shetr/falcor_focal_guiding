@@ -22,16 +22,12 @@ def render_graph_GuidedRayViz():
     # visualization
     GuidedRayViz = createPass("GuidedRayViz", {})
     g.addPass(GuidedRayViz, "GuidedRayViz")
-    VBufferViz = createPass("VBufferRT", {'sampleCount': 16})
-    g.addPass(VBufferViz, "VBufferViz")
     GuidedRays = createPass("GuidedRays", {'maxBounces': 3, 'computeDirect': True})
     g.addPass(GuidedRays, "GuidedRays")
     g.addEdge("FocalGuiding", "GuidedRays")
-    g.addEdge("VBufferViz.vbuffer", "GuidedRays.vbuffer")
-    g.addEdge("VBufferViz.viewW", "GuidedRays.viewW")
+    g.addEdge("VBufferRT.vbuffer", "GuidedRays.vbuffer")
+    g.addEdge("VBufferRT.viewW", "GuidedRays.viewW")
     g.addEdge("GuidedRays", "GuidedRayViz")
-    #g.addEdge("VBufferViz.vbuffer", "GuidedRayViz.vbuffer")
-    #g.addEdge("VBufferViz.viewW", "GuidedRayViz.viewW")
 
     #composite
     Composite = createPass("Composite", {})

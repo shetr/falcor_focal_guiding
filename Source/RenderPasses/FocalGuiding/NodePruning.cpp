@@ -53,7 +53,7 @@ void NodePruning::execute(RenderContext* pRenderContext, const RenderData& rende
     }
     Dictionary& dict = renderData.getDictionary();
     if (!dict.keyExists("gNodes") || !dict.keyExists("gNodesSize") || !dict.keyExists("gMaxNodesSize") ||
-        !dict.keyExists("gMaxOctreeDepth"))
+        !dict.keyExists("gMaxOctreeDepth") || !dict.keyExists("gPassCount"))
     {
         return;
     }
@@ -62,6 +62,7 @@ void NodePruning::execute(RenderContext* pRenderContext, const RenderData& rende
     mNodesSize = dict["gNodesSize"];
     mMaxNodesSize = dict["gMaxNodesSize"];
     mMaxOctreeDepth = dict["gMaxOctreeDepth"];
+    mPassCount = dict["gPassCount"];
 
     mpProgram->addDefine("MAX_OCTREE_DEPTH", std::to_string(mMaxOctreeDepth));
     mpProgram->addDefine("MAX_NODES_SIZE", std::to_string(mMaxNodesSize));
@@ -96,12 +97,11 @@ void NodePruning::execute(RenderContext* pRenderContext, const RenderData& rende
         mNodesSize = mNodesSizeBuffer->getElement<uint>(0);
         dict["gNodesSize"] = mNodesSize;
     }
-
-    mPassCount++;
 }
 
 void NodePruning::renderUI(Gui::Widgets& widget)
 {
+    widget.checkbox("enabled", mUsePruning);
     widget.slider("run in frame", mRunInFrame, 0u, 50u);
 }
 
