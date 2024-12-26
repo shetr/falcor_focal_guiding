@@ -106,7 +106,8 @@ void GuidedRayViz::execute(RenderContext* pRenderContext, const RenderData& rend
         
         // render rays
         auto var = mpVars->getRootVar();
-        var["PerFrameCB"]["gColor"] = mLinesColor;
+        float4 linesColor = mHideLines ? float4(0) : mLinesColor;
+        var["PerFrameCB"]["gColor"] = linesColor;
         var["PerFrameCB"]["gMinIntensity"] = mMinIntensity;
         var["PerFrameCB"]["gLightTheta"] = mLightTheta;
         var["PerFrameCB"]["gLightPhi"] = mLightPhi;
@@ -121,9 +122,12 @@ void GuidedRayViz::renderUI(Gui::Widgets& widget)
 {
     bool dirty = false;
 
+    dirty |= widget.checkbox("Hide", mHideLines);
+
     dirty |= widget.slider("Line length scale", mLineLengthScale, 0.0f, 1.0f);
     dirty |= widget.slider("Line width scale", mLineWidthScale, 0.0f, 1.0f);
     bool shouldRecomputeRays = widget.button("Recompute rays");
+    widget.text("Or use Shift + right mouse click", true);
     dirty |= shouldRecomputeRays; 
     if (shouldRecomputeRays)
     {

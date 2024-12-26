@@ -1,35 +1,66 @@
 from falcor import *
 
-def render_graph_FocalGuidingViz():
-    g = RenderGraph("FocalGuidingViz")
+def render_graph_FocalGuidingSplit():
+    g = RenderGraph("FocalGuidingSplit")
+    # general passes
     AccumulatePass = createPass("AccumulatePass", {'enabled': True, 'precisionMode': 'Single'})
     g.addPass(AccumulatePass, "AccumulatePass")
     ToneMapper = createPass("ToneMapper", {'autoExposure': False, 'exposureCompensation': 0.0})
     g.addPass(ToneMapper, "ToneMapper")
-    FocalGuiding = createPass("FocalGuiding", {'maxBounces': 3, 'computeDirect': True})
-    g.addPass(FocalGuiding, "FocalGuiding")
     VBufferRT = createPass("VBufferRT", {'samplePattern': 'Stratified', 'sampleCount': 16})
     g.addPass(VBufferRT, "VBufferRT")
+    # focal guiding
+    FocalGuiding = createPass("FocalGuiding", {'maxBounces': 3, 'computeDirect': True})
+    g.addPass(FocalGuiding, "FocalGuiding")
     FocalDensities = createPass("FocalDensities", {'maxPasses': 5, 'limitedPasses': True, 'useNarrowing': True})
     g.addPass(FocalDensities, "FocalDensities")
+    NodeSplitting = createPass("NodeSplitting", {'maxPasses': 5, 'limitedPasses': True})
+    g.addPass(NodeSplitting, "NodeSplitting")
+    NodePruning = createPass("NodePruning", {'usePruning': True, 'runInFrame': 6})
+    g.addPass(NodePruning, "NodePruning")
     g.addEdge("VBufferRT.vbuffer", "FocalDensities.vbuffer")
     g.addEdge("VBufferRT.viewW", "FocalDensities.viewW")
-    g.addEdge("FocalDensities", "FocalGuiding")
-    g.addEdge("AccumulatePass.output", "ToneMapper.src")
+    g.addEdge("FocalDensities", "NodeSplitting")
+    g.addEdge("NodeSplitting", "NodePruning")
+    g.addEdge("NodePruning", "FocalGuiding")
     g.addEdge("VBufferRT.vbuffer", "FocalGuiding.vbuffer")
     g.addEdge("VBufferRT.viewW", "FocalGuiding.viewW")
     g.addEdge("FocalGuiding.color", "AccumulatePass.input")
-    # visualization
+    g.addEdge("AccumulatePass.output", "ToneMapper.src")
+    # densities visualization
     FocalViz = createPass("FocalViz", {})
     g.addPass(FocalViz, "FocalViz")
-    g.addEdge("FocalDensities", "FocalViz")
+    DensitiesVizAcc = createPass("AccumulatePass", {'enabled': True, 'precisionMode': 'Single'})
+    g.addPass(DensitiesVizAcc, "DensitiesVizAcc")
+    g.addEdge("FocalGuiding", "FocalViz")
     g.addEdge("VBufferRT.vbuffer", "FocalViz.vbuffer")
     g.addEdge("VBufferRT.viewW", "FocalViz.viewW")
+    g.addEdge("FocalViz.color", "DensitiesVizAcc.input")
+    # ray visualization
+    GuidedRayViz = createPass("GuidedRayViz", {})
+    g.addPass(GuidedRayViz, "GuidedRayViz")
+    GuidedRays = createPass("GuidedRays", {'maxBounces': 3, 'computeDirect': True})
+    g.addPass(GuidedRays, "GuidedRays")
+    GuidedRayVizAcc = createPass("AccumulatePass", {'enabled': True, 'precisionMode': 'Single'})
+    g.addPass(GuidedRayVizAcc, "GuidedRayVizAcc")
+    g.addEdge("FocalGuiding", "GuidedRays")
+    g.addEdge("VBufferRT.vbuffer", "GuidedRays.vbuffer")
+    g.addEdge("VBufferRT.viewW", "GuidedRays.viewW")
+    g.addEdge("GuidedRays", "GuidedRayViz")
+    g.addEdge("GuidedRayViz.output", "GuidedRayVizAcc.input")
+    #composite
+    Composite = createPass("Composite", {})
+    g.addPass(Composite, "Composite")
+    g.addEdge("ToneMapper.dst", "Composite.A")
+    g.addEdge("GuidedRayVizAcc.output", "Composite.B")
     # outputs
+    g.markOutput("Composite.out")
+    g.markOutput("DensitiesVizAcc.output")
     g.markOutput("ToneMapper.dst")
-    g.markOutput("FocalViz.color")
+    g.markOutput("GuidedRays.color")
+    g.markOutput("GuidedRayVizAcc.output")
     return g
 
-FocalGuidingViz = render_graph_FocalGuidingViz()
-try: m.addGraph(FocalGuidingViz)
+FocalGuidingSplit = render_graph_FocalGuidingSplit()
+try: m.addGraph(FocalGuidingSplit)
 except NameError: None

@@ -44,7 +44,7 @@ private:
     float mLineLengthScale = 0.25;
     float mLineWidthScale = 0.5;
     ref<Buffer> mGuidedRays;
-    bool mComputeRays = true;
+    bool mComputeRays = false;
     float4 mLinesColor = float4(1, 1, 0, 1);
     float mMinIntensity = 0.03f;
     bool mShadedLines = false;
@@ -53,6 +53,7 @@ private:
     float mLightPhi = 0.0f; 
     bool mShiftPressed = false;
     bool mOptionsChanged = false;
+    bool mHideLines = false;
 
     // Internal state
     ref<Scene> mpScene;
