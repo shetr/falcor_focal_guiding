@@ -134,6 +134,7 @@ void GuidedRays::execute(RenderContext* pRenderContext, const RenderData& render
     mGuidedRayProb = dict["gGuidedRayProb"];
     mComputeDirect = dict["gComputeDirect"];
     mUseImportanceSampling = dict["gUseImportanceSampling"];
+    mIntensityFactor = dict["gIntensityFactor"];
 
     dict["gGuidedRaysSize"] = mGuidedRaysSize;
     dict["gMaxGuidedRaysSize"] = mMaxGuidedRaysSize;
@@ -172,6 +173,7 @@ void GuidedRays::execute(RenderContext* pRenderContext, const RenderData& render
     var["CB"]["gFrameCount"] = mFrameCount;
     var["CB"]["gPRNGDimension"] = dict.keyExists(kRenderPassPRNGDimension) ? dict[kRenderPassPRNGDimension] : 0u;
     var["CB"]["gGuidedRayProb"] = mGuidedRayProb;
+    var["CB"]["gIntensityFactor"] = mIntensityFactor;
 
     // renderData holds the requested resources
     // auto& pTexture = renderData.getTexture("src");

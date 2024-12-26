@@ -62,6 +62,8 @@ private:
     float mGuidedRayProb = 0.5f;
     bool mUseAnalyticLights = true;
     bool mIntegrateLastHits = true;
+    float3 mIntensityFactor = float3(0.333, 0.333, 0.333);
+    //float3 mIntensityFactor = float3(0.299, 0.587, 0.114);
 
     std::vector<DensityNode> mTempLocalNodes;
     uint mPassCount = 0;

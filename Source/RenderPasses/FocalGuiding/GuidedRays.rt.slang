@@ -29,6 +29,7 @@ cbuffer CB
     uint gFrameCount;    // Frame count since scene was loaded.
     uint gPRNGDimension; // First available PRNG dimension.
     float gGuidedRayProb;
+    float3 gIntensityFactor;
 }
 
 float3 tracePath(const uint2 inPixel, const uint2 frameDim)
@@ -93,7 +94,7 @@ float3 tracePath(const uint2 inPixel, const uint2 frameDim)
                     gGuidedRayLines[rayIndex * gLinesPathLenght + l].pos1 = rayData.origin;
                     traceScatterRay(rayData);
                     gGuidedRayLines[rayIndex * gLinesPathLenght + l].pos2 = rayData.origin;
-                    float intensity = dot(float3(0.299, 0.587, 0.114), rayData.radiance);
+                    float intensity = dot(gIntensityFactor, rayData.radiance);
                     if (intensity > maxIntensity)
                     {
                         maxIntensity = intensity;

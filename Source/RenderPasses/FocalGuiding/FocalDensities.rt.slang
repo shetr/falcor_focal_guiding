@@ -32,6 +32,7 @@ cbuffer CB
     float gGuidedRayProb;
     bool gUseAnalyticLights;
     bool gIntegrateLastHits;
+    float3 gIntensityFactor;
 }
 
 static const float3 kDefaultBackgroundColor = float3(0, 0, 0);
@@ -340,7 +341,7 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
             // direct illumination and generates the next scatter ray.
             traceScatterRay(rayData);
 
-            contributions[depth] = dot(float3(0.299, 0.587, 0.114), rayData.radiance);
+            contributions[depth] = dot(gIntensityFactor, rayData.radiance);
             maxContribution = max(maxContribution, contributions[depth]);
         }
         int depthCount = depth;

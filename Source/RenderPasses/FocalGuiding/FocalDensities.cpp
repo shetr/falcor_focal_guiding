@@ -164,6 +164,7 @@ void FocalDensities::execute(RenderContext* pRenderContext, const RenderData& re
     var["CB"]["gGuidedRayProb"] = mGuidedRayProb;
     var["CB"]["gUseAnalyticLights"] = mUseAnalyticLights;
     var["CB"]["gIntegrateLastHits"] = mIntegrateLastHits;
+    var["CB"]["gIntensityFactor"] = mIntensityFactor;
 
     Dictionary& dict = renderData.getDictionary();
     dict["gNodes"] = mNodes;
@@ -183,6 +184,7 @@ void FocalDensities::execute(RenderContext* pRenderContext, const RenderData& re
     dict["gMaxPassCount"] = mMaxPassCount;
     dict["gNarrowFromPass"] = mNarrowFromPass;
     dict["gNarrowEachNthPass"] = mNarrowEachNthPass;
+    dict["gIntensityFactor"] = mIntensityFactor;
     // renderData holds the requested resources
     // auto& pTexture = renderData.getTexture("src");
 

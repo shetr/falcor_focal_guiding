@@ -45,6 +45,7 @@ private:
     float mGenRadius = 0.0;
     ref<Buffer> mGuidedRays;
     bool mComputeRays = false;
+    float3 mIntensityFactor = float3(0.333, 0.333, 0.333);
 
     uint mNodesSize = 1;
     uint mMaxNodesSize = 1;
