@@ -119,6 +119,7 @@ void NodeSplitting::execute(RenderContext* pRenderContext, const RenderData& ren
 void NodeSplitting::renderUI(Gui::Widgets& widget)
 {
     widget.checkbox("Enabled", mUseSplitting);
+    widget.slider("Splitting threshold", mSplittingThreshold, 0.0001f, 0.01f);
     widget.checkbox("Same pass as narrow pass", mSamePassAsNarrowPass);
     if (!mSamePassAsNarrowPass)
     {

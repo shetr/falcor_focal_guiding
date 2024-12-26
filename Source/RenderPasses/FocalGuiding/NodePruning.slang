@@ -10,6 +10,7 @@ RWByteAddressBuffer gAvgDensities;
 cbuffer CB
 {
     uint gPruneDepth;
+    float gPruneFactor;
 }
 
 [shader("compute")]
@@ -59,7 +60,7 @@ void computeMain(uint3 threadId : SV_DispatchThreadID)
             }
             avgDensity *= (1.0 / 8.0);
 
-            if (maxDensity <= 2 * avgDensity)
+            if (maxDensity <= gPruneFactor * avgDensity)
             {
                 uint parentIndex = gNodes.getParentNodeIndex(nodeIndex);
                 uint parentOffset = gNodes.getParentNodeOffset(nodeIndex);

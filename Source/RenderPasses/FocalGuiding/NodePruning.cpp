@@ -9,6 +9,7 @@ const char kShaderFile[] = "RenderPasses/FocalGuiding/NodePruning.slang";
 const char kRunInFrame[] = "runInFrame";
 const char kRunAfterLastIter[] = "runAfterLastIter";
 const char kUsePruning[] = "usePruning";
+const char kPruneFactor[] = "pruneFactor";
 } // namespace
 
 NodePruning::NodePruning(ref<Device> pDevice, const Properties& props) : RenderPass(pDevice)
@@ -21,6 +22,8 @@ NodePruning::NodePruning(ref<Device> pDevice, const Properties& props) : RenderP
             mRunAfterLastIter = value;
         else if (key == kUsePruning)
             mUsePruning = value;
+        else if (key == kPruneFactor)
+            mPruneFactor = value;
         else
             logWarning("Unknown property '{}' in NodePruning properties.", key);
     }
@@ -35,6 +38,7 @@ Properties NodePruning::getProperties() const
     props[kRunInFrame] = mRunInFrame;
     props[kRunAfterLastIter] = mRunAfterLastIter;
     props[kUsePruning] = mUsePruning;
+    props[kPruneFactor] = mPruneFactor;
     return props;
 }
 
@@ -99,6 +103,7 @@ void NodePruning::execute(RenderContext* pRenderContext, const RenderData& rende
         for (uint depth = mMaxOctreeDepth; depth > 0; depth--)
         {
             var["CB"]["gPruneDepth"] = depth;
+            var["CB"]["gPruneFactor"] = mPruneFactor;
             uint3 numGroups = uint3(mNodesSize, 1, 1);
             mpState->setProgram(mpProgram);
             pRenderContext->dispatch(mpState.get(), mpVars.get(), numGroups);
@@ -112,6 +117,7 @@ void NodePruning::execute(RenderContext* pRenderContext, const RenderData& rende
 void NodePruning::renderUI(Gui::Widgets& widget)
 {
     widget.checkbox("Enabled", mUsePruning);
+    widget.slider("Prune factor", mPruneFactor, 1.0f, 4.0f);
     widget.checkbox("Run after last iter", mRunAfterLastIter);
     if (!mRunAfterLastIter)
     {
