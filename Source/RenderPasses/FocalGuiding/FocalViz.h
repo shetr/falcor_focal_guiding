@@ -88,7 +88,7 @@ private:
     VizColorPalette mColorPalette = VizColorPalette::Inferno;
     DensityAccType mDensityAccType = DensityAccType::Max;
     bool mBlendFromScene = true;
-    float mMinBlendAlpha = 0.5f;
+    float mMinBlendAlpha = 0.95f;
     bool mNormalsViz = false;
 
     bool mOptionsChanged = false;

@@ -43,7 +43,7 @@ private:
 
     bool mUsePruning = true;
     bool mRunAfterLastIter = true;
-    uint mRunInFrame = 6;
+    uint mRunInFrame = 4;
     float mPruneFactor = 2.0f;
 
     uint mPassCount = 0;

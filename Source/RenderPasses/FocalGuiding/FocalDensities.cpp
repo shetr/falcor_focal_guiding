@@ -276,7 +276,7 @@ void FocalDensities::renderUI(Gui::Widgets& widget)
         mPassCount = 0;
     }
     dirty |= widget.checkbox("Limited passes", mLimitedPasses);
-    dirty |= widget.slider("Max passes", mMaxPassCount, 0u, 50u);
+    dirty |= widget.slider("Max passes", mMaxPassCount, 1u, 50u);
     dirty |= widget.checkbox("Use relative contributions", mUseRelativeContributions);
     widget.tooltip(
         "If true, then the contributions on the path are relative to the BSDF, if false, the they are all same along the path", true

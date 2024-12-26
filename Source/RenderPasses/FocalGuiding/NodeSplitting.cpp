@@ -129,7 +129,7 @@ void NodeSplitting::renderUI(Gui::Widgets& widget)
         dirty |= widget.checkbox("Limited passes", mLimitedPasses);
         dirty |= widget.slider("Execute from pass", mExecuteFromPass, 0u, 50u);
         dirty |= widget.slider("Execute each Nth pass", mExecuteEachNthPass, 1u, 50u);
-        dirty |= widget.slider("Max passes", mMaxPassCount, 0u, 50u);
+        dirty |= widget.slider("Max passes", mMaxPassCount, 1u, 50u);
     }
 
     // If rendering options that modify the output have changed, set flag to indicate that.

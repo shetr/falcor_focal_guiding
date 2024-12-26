@@ -82,7 +82,7 @@ void NodePruning::execute(RenderContext* pRenderContext, const RenderData& rende
     if (mRunAfterLastIter)
     {
         uint densitiesMaxPassCount = dict["gMaxPassCount"];
-        mRunInFrame = densitiesMaxPassCount + 1;
+        mRunInFrame = densitiesMaxPassCount - 1;
     }
 
     mpProgram->addDefine("MAX_OCTREE_DEPTH", std::to_string(mMaxOctreeDepth));
