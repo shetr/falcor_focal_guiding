@@ -26,6 +26,7 @@ const char kMaxPassCount[] = "maxPasses";
 const char kLimitedPasses[] = "limitedPasses";
 const char kUseRelativeContributions[] = "useRelativeContributions";
 const char kUseNarrowing[] = "useNarrowing";
+const char kNarrowFactor[] = "narrowFactor";
 const char kNarrowFromPass[] = "narrowFromPass";
 const char kNarrowEachNthPass[] = "narrowEachNthPass";
 const char kMaxNodesSize[] = "maxNodesSize";
@@ -49,6 +50,8 @@ FocalDensities::FocalDensities(ref<Device> pDevice, const Properties& props)
             mUseRelativeContributions = value;
         else if (key == kUseNarrowing)
             mUseNarrowing = value;
+        else if (key == kNarrowFactor)
+            mNarrowFactor = value;
         else if (key == kNarrowFromPass)
             mNarrowFromPass = value;
         else if (key == kNarrowEachNthPass)
@@ -80,6 +83,7 @@ Properties FocalDensities::getProperties() const
     props[kLimitedPasses] = mLimitedPasses;
     props[kUseRelativeContributions] = mUseRelativeContributions;
     props[kUseNarrowing] = mUseNarrowing;
+    props[kNarrowFactor] = mNarrowFactor;
     props[kNarrowFromPass] = mNarrowFromPass;
     props[kNarrowEachNthPass] = mNarrowEachNthPass;
     props[kMaxNodesSize] = mMaxNodesSize;
@@ -154,6 +158,7 @@ void FocalDensities::execute(RenderContext* pRenderContext, const RenderData& re
     var["CB"]["gNodesSize"] = mNodesSize;
     var["CB"]["gUseRelativeContributions"] = mUseRelativeContributions;
     var["CB"]["gUseNarrowing"] = (mUseNarrowing && mNarrowFromPass <= mPassCount && (mPassCount % mNarrowEachNthPass == 0)) ? 1.0f : 0.0f;
+    var["CB"]["gNarrowFactor"] = mNarrowFactor;
     var["CB"]["gSceneBoundsMin"] = mpScene->getSceneBounds().minPoint;
     var["CB"]["gSceneBoundsMax"] = mpScene->getSceneBounds().maxPoint;
     var["CB"]["gGuidedRayProb"] = mGuidedRayProb;
@@ -262,6 +267,7 @@ void FocalDensities::renderUI(Gui::Widgets& widget)
         "If true, then the contributions on the path are relative to the BSDF, if false, the they are all same along the path", true
     );
     widget.checkbox("Use narrowing", mUseNarrowing);
+    widget.slider("Narrow factor", mNarrowFactor, 1.0f, 3.0f);
     widget.slider("Narrow from pass", mNarrowFromPass, 0u, 50u);
     widget.slider("Narrow each Nth pass", mNarrowEachNthPass, 1u, 50u);
     widget.slider("Decay", mDecay, 0.0f, 1.0f);

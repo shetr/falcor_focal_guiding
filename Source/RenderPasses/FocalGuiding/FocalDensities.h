@@ -53,6 +53,7 @@ private:
     bool mPause = false;
     bool mLimitedPasses = true;
     bool mUseNarrowing = true;
+    float mNarrowFactor = 1.0;
     uint mNarrowFromPass = 2;
     uint mNarrowEachNthPass = 1;
     uint mMaxPassCount = 5;

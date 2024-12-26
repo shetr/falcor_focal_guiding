@@ -24,6 +24,7 @@ cbuffer CB
     uint gNodesSize;
     bool gUseRelativeContributions;
     float gUseNarrowing;
+    float gNarrowFactor;
     float3 gSceneBoundsMin;
     float3 gSceneBoundsMax;
     uint gFrameCount;    // Frame count since scene was loaded.
@@ -184,7 +185,7 @@ void storeDensitiesWithNarrowing(
                     if (child.isLeaf() || nodesStackSize >= MAX_OCTREE_DEPTH) {
                         float lengthWeight = (min(hitDist, far) - near) / rayLength;
                         float densityTimesVolume = child.accumulator * invGlobalAccumulator / childBox.volume();
-                        weightsSum += lengthWeight * densityTimesVolume;
+                        weightsSum += pow(lengthWeight * densityTimesVolume, gNarrowFactor);
                     } else {
                         box = childBox;
                         // push node
@@ -259,7 +260,7 @@ void storeDensitiesWithNarrowing(
                     if (child.isLeaf() || nodesStackSize >= MAX_OCTREE_DEPTH) {
                         float lengthWeight = (min(hitDist, far) - near) / rayLength;
                         float densityTimesVolume = child.accumulator * invGlobalAccumulator / childBox.volume();
-                        float weight = lengthWeight * densityTimesVolume;
+                        float weight = pow(lengthWeight * densityTimesVolume, gNarrowFactor);
                         outNodes.addToChildAccumulator(nodeIndex, childIndex, weight * contribution / weightsSum);
                         weightStack[topIndex] += weight;
                         // just for debug
