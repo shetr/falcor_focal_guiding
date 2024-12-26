@@ -67,6 +67,7 @@ private:
 
     std::vector<DensityNode> mTempLocalNodes;
     uint mPassCount = 0;
+    bool mOptionsChanged = false;
 
     // Ray tracing program.
     struct

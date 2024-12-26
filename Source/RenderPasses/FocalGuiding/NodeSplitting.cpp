@@ -89,6 +89,7 @@ void NodeSplitting::execute(RenderContext* pRenderContext, const RenderData& ren
     {
         return;
     }
+    dict["gDensitiesUpdated"] = true;
     
     mpProgram->addDefine("MAX_OCTREE_DEPTH", std::to_string(mMaxOctreeDepth));
     mpProgram->addDefine("MAX_NODES_SIZE", std::to_string(mMaxNodesSize));
@@ -118,15 +119,24 @@ void NodeSplitting::execute(RenderContext* pRenderContext, const RenderData& ren
 
 void NodeSplitting::renderUI(Gui::Widgets& widget)
 {
-    widget.checkbox("Enabled", mUseSplitting);
-    widget.slider("Splitting threshold", mSplittingThreshold, 0.0001f, 0.01f);
-    widget.checkbox("Same pass as narrow pass", mSamePassAsNarrowPass);
+    bool dirty = false;
+
+    dirty |= widget.checkbox("Enabled", mUseSplitting);
+    dirty |= widget.slider("Splitting threshold", mSplittingThreshold, 0.0001f, 0.01f);
+    dirty |= widget.checkbox("Same pass as narrow pass", mSamePassAsNarrowPass);
     if (!mSamePassAsNarrowPass)
     {
-        widget.checkbox("Limited passes", mLimitedPasses);
-        widget.slider("Execute from pass", mExecuteFromPass, 0u, 50u);
-        widget.slider("Execute each Nth pass", mExecuteEachNthPass, 1u, 50u);
-        widget.slider("Max passes", mMaxPassCount, 0u, 50u);
+        dirty |= widget.checkbox("Limited passes", mLimitedPasses);
+        dirty |= widget.slider("Execute from pass", mExecuteFromPass, 0u, 50u);
+        dirty |= widget.slider("Execute each Nth pass", mExecuteEachNthPass, 1u, 50u);
+        dirty |= widget.slider("Max passes", mMaxPassCount, 0u, 50u);
+    }
+
+    // If rendering options that modify the output have changed, set flag to indicate that.
+    // In execute() we will pass the flag to other passes for reset of temporal data etc.
+    if (dirty)
+    {
+        mOptionsChanged = true;
     }
 }
 

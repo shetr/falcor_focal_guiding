@@ -24,30 +24,36 @@ def render_graph_GuidedRayViz():
     g.addPass(GuidedRayViz, "GuidedRayViz")
     GuidedRays = createPass("GuidedRays", {'maxBounces': 3, 'computeDirect': True})
     g.addPass(GuidedRays, "GuidedRays")
+    GuidedRayVizAcc = createPass("AccumulatePass", {'enabled': True, 'precisionMode': 'Single'})
+    g.addPass(GuidedRayVizAcc, "GuidedRayVizAcc")
     g.addEdge("FocalGuiding", "GuidedRays")
     g.addEdge("VBufferRT.vbuffer", "GuidedRays.vbuffer")
     g.addEdge("VBufferRT.viewW", "GuidedRays.viewW")
     g.addEdge("GuidedRays", "GuidedRayViz")
+    g.addEdge("GuidedRayViz.output", "GuidedRayVizAcc.input")
 
     #composite
     Composite = createPass("Composite", {})
     g.addPass(Composite, "Composite")
     g.addEdge("ToneMapper.dst", "Composite.A")
-    g.addEdge("GuidedRayViz.output", "Composite.B")
+    g.addEdge("GuidedRayVizAcc.output", "Composite.B")
 
     # focal viz
     FocalViz = createPass("FocalViz", {})
     g.addPass(FocalViz, "FocalViz")
+    DensitiesViz = createPass("AccumulatePass", {'enabled': True, 'precisionMode': 'Single'})
+    g.addPass(DensitiesViz, "DensitiesViz")
     g.addEdge("FocalDensities", "FocalViz")
     g.addEdge("VBufferRT.vbuffer", "FocalViz.vbuffer")
     g.addEdge("VBufferRT.viewW", "FocalViz.viewW")
+    g.addEdge("FocalViz.color", "DensitiesViz.input")
 
     # outputs
     g.markOutput("Composite.out")
-    g.markOutput("FocalViz.color")
+    g.markOutput("DensitiesViz.output")
     g.markOutput("ToneMapper.dst")
     g.markOutput("GuidedRays.color")
-    g.markOutput("GuidedRayViz.output")
+    g.markOutput("GuidedRayVizAcc.output")
     return g
 
 

@@ -53,12 +53,19 @@ RenderPassReflection GuidedRayViz::reflect(const CompileData& compileData)
 
 void GuidedRayViz::execute(RenderContext* pRenderContext, const RenderData& renderData)
 {
+    Dictionary& dict = renderData.getDictionary();
+    if (mOptionsChanged)
+    {
+        auto flags = dict.getValue(kRenderPassRefreshFlags, RenderPassRefreshFlags::None);
+        dict[Falcor::kRenderPassRefreshFlags] = flags | Falcor::RenderPassRefreshFlags::RenderOptionsChanged;
+        mOptionsChanged = false;
+    }
+
     if (!mpScene)
     {
         return;
     }
 
-    Dictionary& dict = renderData.getDictionary();
     mGuidedRaysSize = dict["gGuidedRaysSize"];
     mMaxGuidedRaysSize = dict["gMaxGuidedRaysSize"];
     mGuidedRays = dict["gGuidedRays"];
@@ -112,21 +119,31 @@ void GuidedRayViz::execute(RenderContext* pRenderContext, const RenderData& rend
 
 void GuidedRayViz::renderUI(Gui::Widgets& widget)
 {
-    widget.slider("Line length scale", mLineLengthScale, 0.0f, 1.0f);
-    widget.slider("Line width scale", mLineWidthScale, 0.0f, 1.0f);
+    bool dirty = false;
+
+    dirty |= widget.slider("Line length scale", mLineLengthScale, 0.0f, 1.0f);
+    dirty |= widget.slider("Line width scale", mLineWidthScale, 0.0f, 1.0f);
     bool shouldRecomputeRays = widget.button("Recompute rays");
+    dirty |= shouldRecomputeRays; 
     if (shouldRecomputeRays)
     {
         mComputeRays = true;
     }
-    widget.rgbaColor("Lines color", mLinesColor);
-    widget.slider("Min intensity", mMinIntensity, 0.0f, 0.1f);
-    widget.checkbox("Use intensity", mUseIntensity);
-    widget.checkbox("Shaded lines", mShadedLines);
+    dirty |= widget.rgbaColor("Lines color", mLinesColor);
+    dirty |= widget.slider("Min intensity", mMinIntensity, 0.0f, 0.1f);
+    dirty |= widget.checkbox("Use intensity", mUseIntensity);
+    dirty |= widget.checkbox("Shaded lines", mShadedLines);
     if (mShadedLines)
     {
-        widget.slider("Line light theta", mLightTheta, 0.0f, 180.0f);
-        widget.slider("Line light phi", mLightPhi, 0.0f, 360.0f);
+        dirty |= widget.slider("Line light theta", mLightTheta, 0.0f, 180.0f);
+        dirty |= widget.slider("Line light phi", mLightPhi, 0.0f, 360.0f);
+    }
+
+    // If rendering options that modify the output have changed, set flag to indicate that.
+    // In execute() we will pass the flag to other passes for reset of temporal data etc.
+    if (dirty)
+    {
+        mOptionsChanged = true;
     }
 }
 
@@ -167,6 +184,7 @@ bool GuidedRayViz::onMouseEvent(const MouseEvent& mouseEvent)
         if (mShiftPressed)
         {
             mComputeRays = true;
+            mOptionsChanged = true;
         }
     }
     return mpRayScene ? mpRayScene->onMouseEvent(mouseEvent) : false;

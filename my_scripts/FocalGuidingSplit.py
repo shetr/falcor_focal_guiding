@@ -28,12 +28,15 @@ def render_graph_FocalGuidingSplit():
     # visualization
     FocalViz = createPass("FocalViz", {})
     g.addPass(FocalViz, "FocalViz")
+    DensitiesViz = createPass("AccumulatePass", {'enabled': True, 'precisionMode': 'Single'})
+    g.addPass(DensitiesViz, "DensitiesViz")
     g.addEdge("FocalGuiding", "FocalViz")
     g.addEdge("VBufferRT.vbuffer", "FocalViz.vbuffer")
     g.addEdge("VBufferRT.viewW", "FocalViz.viewW")
+    g.addEdge("FocalViz.color", "DensitiesViz.input")
     # outputs
     g.markOutput("ToneMapper.dst")
-    g.markOutput("FocalViz.color")
+    g.markOutput("DensitiesViz.output")
     return g
 
 FocalGuidingSplit = render_graph_FocalGuidingSplit()

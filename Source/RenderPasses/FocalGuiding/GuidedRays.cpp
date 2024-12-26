@@ -216,18 +216,14 @@ void GuidedRays::renderUI(Gui::Widgets& widget)
 {
     bool dirty = false;
 
-    bool raysStateChanged = false;
-    raysStateChanged |= widget.slider("rays pos X", mGuidedRaysPos.x, 0.0f, 1.0f);
-    raysStateChanged |= widget.slider("rays pos Y", mGuidedRaysPos.y, 0.0f, 1.0f);
-    raysStateChanged |= widget.slider("rays count", mGuidedRaysSize, 1u, mMaxGuidedRaysSize);
-    raysStateChanged |= widget.slider("path length", mLinesPathLenght, 1u, 5u);
-    raysStateChanged |= widget.slider("gen radius", mGenRadius, 0.0f, 0.5f);
-    if (raysStateChanged)
-    {
-        //mComputeRays = true;
-    }
+    dirty |= widget.slider("rays pos X", mGuidedRaysPos.x, 0.0f, 1.0f);
+    dirty |= widget.slider("rays pos Y", mGuidedRaysPos.y, 0.0f, 1.0f);
+    dirty |= widget.slider("rays count", mGuidedRaysSize, 1u, mMaxGuidedRaysSize);
+    dirty |= widget.slider("path length", mLinesPathLenght, 1u, 5u);
+    dirty |= widget.slider("gen radius", mGenRadius, 0.0f, 0.5f);
 
     bool shouldPrintRays = widget.button("print rays");
+    dirty |= shouldPrintRays; 
     if (shouldPrintRays)
     {
         printRays();

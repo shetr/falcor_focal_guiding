@@ -52,6 +52,7 @@ private:
     float mLightTheta = 0.0f;
     float mLightPhi = 0.0f; 
     bool mShiftPressed = false;
+    bool mOptionsChanged = false;
 
     // Internal state
     ref<Scene> mpScene;

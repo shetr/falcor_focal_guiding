@@ -108,6 +108,14 @@ RenderPassReflection FocalDensities::reflect(const CompileData& compileData)
 
 void FocalDensities::execute(RenderContext* pRenderContext, const RenderData& renderData)
 {
+    Dictionary& dict = renderData.getDictionary();
+    if (mOptionsChanged)
+    {
+        auto flags = dict.getValue(kRenderPassRefreshFlags, RenderPassRefreshFlags::None);
+        dict[Falcor::kRenderPassRefreshFlags] = flags | Falcor::RenderPassRefreshFlags::RenderOptionsChanged;
+        mOptionsChanged = false;
+    }
+
     // If we have no scene, just clear the outputs and return.
     if (!mpScene)
     {
@@ -166,7 +174,6 @@ void FocalDensities::execute(RenderContext* pRenderContext, const RenderData& re
     var["CB"]["gIntegrateLastHits"] = mIntegrateLastHits;
     var["CB"]["gIntensityFactor"] = mIntensityFactor;
 
-    Dictionary& dict = renderData.getDictionary();
     dict["gNodes"] = mNodes;
     if (!dict.keyExists("gNodesSize") || mPassCount == 0)
     {
@@ -201,8 +208,10 @@ void FocalDensities::execute(RenderContext* pRenderContext, const RenderData& re
     for (auto channel : kOutputChannels)
         bind(channel);
 
+    dict["gDensitiesUpdated"] = false;
     if (!mPause && (!mLimitedPasses || mPassCount < mMaxPassCount))
     {
+        dict["gDensitiesUpdated"] = true;
         {
             mTempLocalNodes.resize(mMaxNodesSize);
             mNodes->getBlob(mTempLocalNodes.data(), 0, mMaxNodesSize * sizeof(DensityNode));
@@ -248,33 +257,44 @@ void FocalDensities::execute(RenderContext* pRenderContext, const RenderData& re
 
 void FocalDensities::renderUI(Gui::Widgets& widget)
 {
+    bool dirty = false;
+
     widget.text(std::string("Nodes size: ") + std::to_string(mNodesSize));
     bool shouldPrintNodes = widget.button("Print nodes");
+    dirty |= shouldPrintNodes;
     if (shouldPrintNodes)
     {
         printNodes();
     }
 
-    widget.checkbox("Pause", mPause);
+    dirty |= widget.checkbox("Pause", mPause);
     bool recomputeDensities = widget.button("Recompute");
+    dirty |= recomputeDensities; 
     if (recomputeDensities)
     {
         setUniformNodes();
         mPassCount = 0;
     }
-    widget.checkbox("Limited passes", mLimitedPasses);
-    widget.slider("Max passes", mMaxPassCount, 0u, 50u);
-    widget.checkbox("Use relative contributions", mUseRelativeContributions);
+    dirty |= widget.checkbox("Limited passes", mLimitedPasses);
+    dirty |= widget.slider("Max passes", mMaxPassCount, 0u, 50u);
+    dirty |= widget.checkbox("Use relative contributions", mUseRelativeContributions);
     widget.tooltip(
         "If true, then the contributions on the path are relative to the BSDF, if false, the they are all same along the path", true
     );
-    widget.checkbox("Use narrowing", mUseNarrowing);
-    widget.slider("Narrow factor", mNarrowFactor, 1.0f, 3.0f);
-    widget.slider("Narrow from pass", mNarrowFromPass, 0u, 50u);
-    widget.slider("Narrow each Nth pass", mNarrowEachNthPass, 1u, 50u);
-    widget.slider("Decay", mDecay, 0.0f, 1.0f);
-    widget.checkbox("Use analytic lights", mUseAnalyticLights);
-    widget.checkbox("Integrate last hits", mIntegrateLastHits);
+    dirty |= widget.checkbox("Use narrowing", mUseNarrowing);
+    dirty |= widget.slider("Narrow factor", mNarrowFactor, 1.0f, 3.0f);
+    dirty |= widget.slider("Narrow from pass", mNarrowFromPass, 0u, 50u);
+    dirty |= widget.slider("Narrow each Nth pass", mNarrowEachNthPass, 1u, 50u);
+    dirty |= widget.slider("Decay", mDecay, 0.0f, 1.0f);
+    dirty |= widget.checkbox("Use analytic lights", mUseAnalyticLights);
+    dirty |= widget.checkbox("Integrate last hits", mIntegrateLastHits);
+
+    // If rendering options that modify the output have changed, set flag to indicate that.
+    // In execute() we will pass the flag to other passes for reset of temporal data etc.
+    if (dirty)
+    {
+        mOptionsChanged = true;
+    }
 }
 
 void FocalDensities::setScene(RenderContext* pRenderContext, const ref<Scene>& pScene)

@@ -48,6 +48,7 @@ private:
     uint mMaxPassCount = 5;
 
     uint mPassCount = 0;
+    bool mOptionsChanged = false;
 
     ref<Program> mpProgram;
     ref<ProgramVars> mpVars;

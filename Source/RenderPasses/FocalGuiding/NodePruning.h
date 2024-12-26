@@ -47,6 +47,7 @@ private:
     float mPruneFactor = 2.0f;
 
     uint mPassCount = 0;
+    bool mOptionsChanged = false;
 
     ref<Program> mpProgram;
     ref<ProgramVars> mpVars;

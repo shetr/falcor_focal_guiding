@@ -77,6 +77,13 @@ RenderPassReflection FocalViz::reflect(const CompileData& compileData)
 
 void FocalViz::execute(RenderContext* pRenderContext, const RenderData& renderData)
 {
+    Dictionary& dict = renderData.getDictionary();
+    if (mOptionsChanged || (dict.keyExists("gDensitiesUpdated") && dict["gDensitiesUpdated"]))
+    {
+        auto flags = dict.getValue(kRenderPassRefreshFlags, RenderPassRefreshFlags::None);
+        dict[Falcor::kRenderPassRefreshFlags] = flags | Falcor::RenderPassRefreshFlags::RenderOptionsChanged;
+        mOptionsChanged = false;
+    }
 
     // If we have no scene, just clear the outputs and return.
     if (!mpScene)
@@ -108,7 +115,6 @@ void FocalViz::execute(RenderContext* pRenderContext, const RenderData& renderDa
         logWarning("Depth-of-field requires the '{}' input. Expect incorrect shading.", kInputViewDir);
     }
 
-    Dictionary& dict = renderData.getDictionary();
     mNodes = dict["gNodes"];
     mGlobalAccumulator = dict["gGlobalAccumulator"];
     mNodesSize = dict["gNodesSize"];
@@ -194,7 +200,9 @@ void FocalViz::renderUI(Gui::Widgets& widget)
     dirty |= widget.slider("Max density", mMaxDensity, mMinDensity, (float)mMaxSliderDensity);
     widget.tooltip("Maximum visualized density.", true);
 
-    if (widget.dropdown("Color palette", mColorPalette))
+    bool colorPaletteChanged = widget.dropdown("Color palette", mColorPalette);
+    dirty |= colorPaletteChanged; 
+    if (colorPaletteChanged)
     {
         setColors();
     }

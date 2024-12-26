@@ -55,11 +55,18 @@ RenderPassReflection NodePruning::reflect(const CompileData& compileData)
 
 void NodePruning::execute(RenderContext* pRenderContext, const RenderData& renderData)
 {
+    Dictionary& dict = renderData.getDictionary();
+    if (mOptionsChanged)
+    {
+        auto flags = dict.getValue(kRenderPassRefreshFlags, RenderPassRefreshFlags::None);
+        dict[Falcor::kRenderPassRefreshFlags] = flags | Falcor::RenderPassRefreshFlags::RenderOptionsChanged;
+        mOptionsChanged = false;
+    }
+
     if (!mpScene)
     {
         return;
     }
-    Dictionary& dict = renderData.getDictionary();
     if (!dict.keyExists("gNodes") || !dict.keyExists("gNodesSize") || !dict.keyExists("gMaxNodesSize") ||
         !dict.keyExists("gMaxOctreeDepth") || !dict.keyExists("gPassCount"))
     {
@@ -100,6 +107,7 @@ void NodePruning::execute(RenderContext* pRenderContext, const RenderData& rende
 
     if (mPassCount == mRunInFrame && mUsePruning)
     {
+        dict["gDensitiesUpdated"] = true;
         for (uint depth = mMaxOctreeDepth; depth > 0; depth--)
         {
             var["CB"]["gPruneDepth"] = depth;
@@ -116,12 +124,21 @@ void NodePruning::execute(RenderContext* pRenderContext, const RenderData& rende
 
 void NodePruning::renderUI(Gui::Widgets& widget)
 {
-    widget.checkbox("Enabled", mUsePruning);
-    widget.slider("Prune factor", mPruneFactor, 1.0f, 4.0f);
-    widget.checkbox("Run after last iter", mRunAfterLastIter);
+    bool dirty = false;
+
+    dirty |= widget.checkbox("Enabled", mUsePruning);
+    dirty |= widget.slider("Prune factor", mPruneFactor, 1.0f, 4.0f);
+    dirty |= widget.checkbox("Run after last iter", mRunAfterLastIter);
     if (!mRunAfterLastIter)
     {
-        widget.slider("Run in frame", mRunInFrame, 0u, 50u);
+        dirty |= widget.slider("Run in frame", mRunInFrame, 0u, 50u);
+    }
+
+    // If rendering options that modify the output have changed, set flag to indicate that.
+    // In execute() we will pass the flag to other passes for reset of temporal data etc.
+    if (dirty)
+    {
+        mOptionsChanged = true;
     }
 }
 
