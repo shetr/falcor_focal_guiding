@@ -1,7 +1,7 @@
 from falcor import *
 
-def render_graph_GuidedRayViz():
-    g = RenderGraph('GuidedRayViz')
+def render_graph_SimpleFocalGuidingViz():
+    g = RenderGraph('SimpleFocalGuidingViz')
     # general passes
     AccumulatePass = createPass("AccumulatePass", {'enabled': True, 'precisionMode': 'Single'})
     g.addPass(AccumulatePass, "AccumulatePass")
@@ -54,8 +54,3 @@ def render_graph_GuidedRayViz():
     g.markOutput("GuidedRays.color")
     g.markOutput("GuidedRayVizAcc.output")
     return g
-
-
-GuidedRayViz = render_graph_GuidedRayViz()
-try: m.addGraph(GuidedRayViz)
-except NameError: None

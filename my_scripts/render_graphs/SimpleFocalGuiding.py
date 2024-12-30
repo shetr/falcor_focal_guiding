@@ -24,7 +24,3 @@ def render_graph_SimpleFocalGuiding():
     # outputs
     g.markOutput("ToneMapper.dst")
     return g
-
-SimpleFocalGuiding = render_graph_SimpleFocalGuiding()
-try: m.addGraph(SimpleFocalGuiding)
-except NameError: None

@@ -1,7 +1,7 @@
 from falcor import *
 
-def render_graph_FocalGuidingSplit():
-    g = RenderGraph("FocalGuidingSplit")
+def render_graph_FocalGuidingViz():
+    g = RenderGraph("FocalGuidingViz")
     # general passes
     AccumulatePass = createPass("AccumulatePass", {'enabled': True, 'precisionMode': 'Single'})
     g.addPass(AccumulatePass, "AccumulatePass")
@@ -60,7 +60,3 @@ def render_graph_FocalGuidingSplit():
     g.markOutput("GuidedRays.color")
     g.markOutput("GuidedRayVizAcc.output")
     return g
-
-FocalGuidingSplit = render_graph_FocalGuidingSplit()
-try: m.addGraph(FocalGuidingSplit)
-except NameError: None
