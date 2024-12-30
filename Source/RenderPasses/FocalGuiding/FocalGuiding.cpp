@@ -209,7 +209,7 @@ void FocalGuiding::renderUI(Gui::Widgets& widget)
 {
     bool dirty = false;
 
-    dirty |= widget.slider("Max bounces", mMaxBounces, 0u, 5u);
+    dirty |= widget.slider("Max bounces", mMaxBounces, 0u, 7u);
     widget.tooltip("Maximum path length for indirect illumination.\n0 = direct only\n1 = one indirect bounce etc.", true);
 
     dirty |= widget.slider("Guided ray prob", mGuidedRayProb, 0.0f, 1.0f);
