@@ -1,6 +1,6 @@
 from falcor import *
 
-def render_graph_FocalGuidingViz():
+def render_graph_FocalGuidingViz(densityPasses=12, narrowFromPass=6):
     g = RenderGraph("FocalGuidingViz")
     # general passes
     AccumulatePass = createPass("AccumulatePass", {'enabled': True, 'precisionMode': 'Single'})
@@ -10,13 +10,13 @@ def render_graph_FocalGuidingViz():
     VBufferRT = createPass("VBufferRT", {'samplePattern': 'Stratified', 'sampleCount': 16})
     g.addPass(VBufferRT, "VBufferRT")
     # focal guiding
-    FocalGuiding = createPass("FocalGuiding", {'maxBounces': 3, 'computeDirect': True})
+    FocalGuiding = createPass("FocalGuiding", {'maxBounces': 5, 'computeDirect': True})
     g.addPass(FocalGuiding, "FocalGuiding")
-    FocalDensities = createPass("FocalDensities", {'maxPasses': 5, 'limitedPasses': True, 'useNarrowing': True})
+    FocalDensities = createPass("FocalDensities", {'maxPasses': densityPasses, 'narrowFromPass': narrowFromPass, 'limitedPasses': True, 'useNarrowing': True})
     g.addPass(FocalDensities, "FocalDensities")
-    NodeSplitting = createPass("NodeSplitting", {'maxPasses': 5, 'limitedPasses': True})
+    NodeSplitting = createPass("NodeSplitting", {'maxPasses': densityPasses, 'limitedPasses': True})
     g.addPass(NodeSplitting, "NodeSplitting")
-    NodePruning = createPass("NodePruning", {'usePruning': True, 'runInFrame': 6})
+    NodePruning = createPass("NodePruning", {'usePruning': True})
     g.addPass(NodePruning, "NodePruning")
     g.addEdge("VBufferRT.vbuffer", "FocalDensities.vbuffer")
     g.addEdge("VBufferRT.viewW", "FocalDensities.viewW")
