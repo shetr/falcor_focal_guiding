@@ -50,7 +50,7 @@ def render_graph_SimpleFocalGuidingViz():
     # outputs
     g.markOutput("Composite.out")
     g.markOutput("DensitiesVizAcc.output")
-    #g.markOutput("ToneMapper.dst")
+    g.markOutput("ToneMapper.dst")
     #g.markOutput("GuidedRays.color")
     #g.markOutput("GuidedRayVizAcc.output")
     return g
