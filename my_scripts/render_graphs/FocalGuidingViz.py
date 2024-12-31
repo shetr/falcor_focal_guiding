@@ -57,6 +57,5 @@ def render_graph_FocalGuidingViz(densityPasses=12, narrowFromPass=6):
     g.markOutput("Composite.out")
     g.markOutput("DensitiesVizAcc.output")
     g.markOutput("ToneMapper.dst")
-    #g.markOutput("GuidedRays.color")
-    #g.markOutput("GuidedRayVizAcc.output")
+    g.markOutput("FocalViz.color")
     return g
