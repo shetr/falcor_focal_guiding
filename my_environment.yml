@@ -1,0 +1,10 @@
+name: falcor
+channels:
+    - nvidia
+dependencies:
+    - numpy
+    - python=3.10
+    - pip
+    - pip:
+        - pyexr
+        - largesteps
