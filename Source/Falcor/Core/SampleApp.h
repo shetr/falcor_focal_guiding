@@ -71,6 +71,9 @@ struct SampleAppConfig
 
     bool generateShaderDebugInfo = false;
     bool shaderPreciseFloat = false;
+    uint exitFrame = 0;
+    double exitTime = 0.0;
+    bool captureLastFrame = false;
 };
 
 /**
@@ -337,10 +340,14 @@ private:
     bool mVsyncOn = false;
     bool mShowUI = true;
     bool mCaptureScreen = false;
+    bool mCaptureLastFrame = false;
 
     int mReturnCode = 0;
 
     SampleApp(const SampleApp&) = delete;
     SampleApp& operator=(const SampleApp&) = delete;
+
+protected:
+    bool mCaptureFrame = false;
 };
 }; // namespace Falcor

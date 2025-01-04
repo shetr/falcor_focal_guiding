@@ -62,6 +62,16 @@ SampleApp::SampleApp(const SampleAppConfig& config)
     if (config.pauseTime)
         mClock.pause();
 
+    if (config.exitFrame != 0)
+    {
+        mClock.setExitFrame(config.exitFrame);
+    }
+    if (config.exitTime != 0.0)
+    {
+        mClock.setExitTime(config.exitTime);
+    }
+    mCaptureLastFrame = config.captureLastFrame;
+
     // Create GPU device
     mpDevice = make_ref<Device>(config.deviceDesc);
 
@@ -469,7 +479,17 @@ void SampleApp::renderFrame()
 
     // Check clock exit condition.
     if (mClock.shouldExit())
-        shutdown();
+    {
+        if (mCaptureLastFrame)
+        {
+            mCaptureLastFrame = false;
+            mCaptureFrame = true;
+        }
+        else
+        {
+            shutdown();
+        }
+    }
 
     // Handle clock.
     mClock.tick();
@@ -499,6 +519,17 @@ void SampleApp::renderFrame()
         {
             mpPausedRenderOutput = nullptr;
         }
+    }
+
+    if (mCaptureFrame)
+    {
+        mCaptureFrame = false;
+        Texture* pTex = mpTargetFBO->getColorTexture(0).get();
+
+        std::string filename = getExecutableName();
+        std::filesystem::path directory = getRuntimeDirectory();
+        std::filesystem::path path = findAvailableFilename(filename, directory, "png");
+        pTex->captureToFile(0, 0, path, Bitmap::FileFormat::PngFile, Bitmap::ExportFlags::None, false);
     }
 
     // Render the UI.

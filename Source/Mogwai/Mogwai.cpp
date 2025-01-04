@@ -846,7 +846,10 @@ int runMain(int argc, char** argv)
     args::Flag rebuildSceneCacheFlag(parser, "", "Rebuild the scene cache.", {"rebuild-cache"});
     args::Flag generateShaderDebugInfoFlag(parser, "", "Generate shader debug info.", {"debug-shaders"});
     args::Flag enableDebugLayerFlag(parser, "", "Enable debug layer (enabled by default in Debug build).", {"enable-debug-layer"});
-    args::Flag preciseProgramFlag(parser, "", "Force all slang programs to run in precise mode", { "precise" });
+    args::Flag preciseProgramFlag(parser, "", "Force all slang programs to run in precise mode", {"precise"});
+    args::ValueFlag<uint32_t> exitFrameFlag(parser, "frame", "Exit frame.", {"exit-frame"});
+    args::ValueFlag<double> exitTimeFlag(parser, "seconds", "Exit time in seconds.", {"exit-time"});
+    args::Flag captureLastFrameFlag(parser, "", "Capture last frame.", {"capture-last-frame"});
 
     args::CompletionFlag completionFlag(parser, {"complete"});
 
@@ -938,6 +941,12 @@ int runMain(int argc, char** argv)
         logWarning("The --silent flag is deprecated. Use --headless instead.");
         config.headless = true;
     }
+    if (exitFrameFlag)
+        config.exitFrame = args::get(exitFrameFlag);
+    if (exitTimeFlag)
+        config.exitTime = args::get(exitTimeFlag);
+    if (captureLastFrameFlag)
+        config.captureLastFrame = true;
 
     Mogwai::Renderer::Options options;
     if (scriptFlag) options.scriptFile = args::get(scriptFlag);
