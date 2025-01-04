@@ -526,7 +526,7 @@ void SampleApp::renderFrame()
         mCaptureFrame = false;
         Texture* pTex = mpTargetFBO->getColorTexture(0).get();
 
-        std::string filename = getExecutableName();
+        std::string filename = getExecutableName() + std::string("_f") + std::to_string(mClock.getFrame());
         std::filesystem::path directory = getRuntimeDirectory();
         std::filesystem::path path = findAvailableFilename(filename, directory, "png");
         pTex->captureToFile(0, 0, path, Bitmap::FileFormat::PngFile, Bitmap::ExportFlags::None, false);
