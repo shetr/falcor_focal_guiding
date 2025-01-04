@@ -376,14 +376,14 @@ void FocalDensities::prepareVars()
     ResourceBindFlags bindFlags = ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess;
     MemoryType memoryType = MemoryType::DeviceLocal;
     DensityNode initDensities[1] = {DensityNode{
-        {{0, 0.0f, 0.5f},
-         {0, 0.0f, 0.9f},
-         {0, 0.0f, 0.5f},
-         {0, 0.0f, 0.9f},
-         {0, 0.0f, 0.5f},
-         {0, 0.0f, 0.9f},
-         {0, 0.0f, 0.5f},
-         {0, 0.0f, 1.0f}}}};
+        {{0, 0.0f},
+         {0, 0.0f},
+         {0, 0.0f},
+         {0, 0.0f},
+         {0, 0.0f},
+         {0, 0.0f},
+         {0, 0.0f},
+         {0, 0.0f}}}};
     std::vector<DensityNode> densityNodes = genUniformNodes(mInitOctreeDepth, false);
     //std::vector<DensityNode> densityNodes = genRandomNodes();
     mNodesSize = (uint)densityNodes.size();
@@ -452,7 +452,6 @@ void FocalDensities::printNodes()
             printf("      relDensity    : %f\n", relDensity);
             float density = densityTimesVolume / (volume / 8.0f);
             printf("      density       : %f\n", density);
-            printf("      debug value   : %f\n", child.density);
         }
     }
 
@@ -469,14 +468,14 @@ float genRand()
 DensityNode randNode()
 {
     return DensityNode{
-        {{0, 0.0f, genRand()},
-         {0, 0.0f, genRand()},
-         {0, 0.0f, genRand()},
-         {0, 0.0f, genRand()},
-         {0, 0.0f, genRand()},
-         {0, 0.0f, genRand()},
-         {0, 0.0f, genRand()},
-         {0, 0.0f, genRand()}},
+        {{0, 0.0f},
+         {0, 0.0f},
+         {0, 0.0f},
+         {0, 0.0f},
+         {0, 0.0f},
+         {0, 0.0f},
+         {0, 0.0f},
+         {0, 0.0f}},
         0,
         0
     };
@@ -485,14 +484,14 @@ DensityNode randNode()
 DensityNode emptyNode(float acc)
 {
     return DensityNode{
-        {{0, acc, 1.0f / 8.0f},
-         {0, acc, 1.0f / 8.0f},
-         {0, acc, 1.0f / 8.0f},
-         {0, acc, 1.0f / 8.0f},
-         {0, acc, 1.0f / 8.0f},
-         {0, acc, 1.0f / 8.0f},
-         {0, acc, 1.0f / 8.0f},
-         {0, acc, 1.0f / 8.0f}},
+        {{0, acc},
+         {0, acc},
+         {0, acc},
+         {0, acc},
+         {0, acc},
+         {0, acc},
+         {0, acc},
+         {0, acc}},
          0,
          0
     };

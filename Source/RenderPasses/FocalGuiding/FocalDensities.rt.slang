@@ -107,7 +107,6 @@ void storeDensitiesNoNarrowing(
                 if (near < hitDist) {
                     float lengthWeight = (min(hitDist, far) - near) / rayLength;
                     outNodes.addToChildAccumulator(nodeIndex, childIndex, lengthWeight * contribution);
-                    outNodes.setChildDensity(nodeIndex, childIndex, lengthWeight);
                     if (child.isLeaf() || nodesStackSize >= MAX_OCTREE_DEPTH) {
                     } else {
                         box = childBox;
@@ -241,7 +240,6 @@ void storeDensitiesWithNarrowing(
                 uint nodeIndex = nodesStack[topIndex].node;
                 weightStack[topIndex] += weight;
                 outNodes.addToChildAccumulator(nodeIndex, currChildIndex, weight * contribution / weightsSum);
-                outNodes.setChildDensity(nodeIndex, currChildIndex, weight);
             }
         }
         else
@@ -264,8 +262,6 @@ void storeDensitiesWithNarrowing(
                         float weight = pow(lengthWeight * densityTimesVolume, gNarrowFactor);
                         outNodes.addToChildAccumulator(nodeIndex, childIndex, weight * contribution / weightsSum);
                         weightStack[topIndex] += weight;
-                        // just for debug
-                        outNodes.setChildDensity(nodeIndex, childIndex, weight);
                     } else {
                         box = childBox;
                         // push node

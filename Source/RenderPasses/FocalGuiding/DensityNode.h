@@ -7,7 +7,6 @@ struct DensityChild
 {
     uint index;
     float accumulator;
-    float density;
 
     bool isLeaf() { return index == 0; }
 };
