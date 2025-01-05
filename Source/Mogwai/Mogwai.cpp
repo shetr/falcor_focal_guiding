@@ -575,6 +575,7 @@ namespace Mogwai
 
         if (mpScene)
         {
+            mpScene->setIsAnimated(false);
             const auto& pFbo = getTargetFbo();
             float ratio = float(pFbo->getWidth()) / float(pFbo->getHeight());
             mpScene->setCameraAspectRatio(ratio);
