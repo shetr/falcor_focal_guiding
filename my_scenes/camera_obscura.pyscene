@@ -53,8 +53,8 @@ sceneBuilder.addCamera(camera1)
 
 camera2 = Camera('DetailCamera')
 camera2.position = [-0.23404935, 0.243719652, 0.6347242]
-camera2.target = [0.309246629, 0.266183376, -0.204516411]
-camera2.up = [-0.000510845741, 0.999999583, 0.000791823375]
+camera2.target = [0.214479834, 0.288381577, -0.257927418]
+camera2.up = [-0.00198943727, 0.999990165, 0.0039703208]
 camera2.focalLength = 35
 camera2.focalDistance = 10000
 camera2.apertureRadius = 0
